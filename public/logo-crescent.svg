@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="Crescent Compound moon logo">
+  <path d="M48 38a20 20 0 1 1-22-22 14 14 0 0 0 22 22z" fill="currentColor" fill-opacity="0.18"/>
+  <circle cx="44" cy="14" r="1.5" fill="currentColor"/>
+  <circle cx="14" cy="44" r="1" fill="currentColor"/>
+  <circle cx="50" cy="50" r="1.25" fill="currentColor"/>
+</svg>

@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PipelineStatus {
+  NEW
+  REVIEW
+  KEEP
+  DECLINED
+  OFFER
+  UNDER_CONTRACT
+  CLOSED
+}
+
+enum WorkflowStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+
+model Listing {
+  id                String            @id @default(cuid())
+  externalSource    String            @default("zillow_email")
+  externalListingId String?
+  zpid              String?           @unique
+  listingUrl        String            @unique
+  address           String
+  city              String
+  state             String
+  zip               String
+  price             Int
+  priceCut          Int               @default(0)
+  beds              Float             @default(0)
+  baths             Float             @default(0)
+  sqft              Int               @default(0)
+  hoaMonthly        Int               @default(0)
+  yearBuilt         String            @default("")
+  lotSize           String            @default("")
+  notificationType  String            @default("Unknown")
+  searchName        String            @default("")
+  sourceMessageId   String            @default("")
+  sourceThreadId    String            @default("")
+  ingestedAt        DateTime          @default(now())
+  lastSeenAt        DateTime          @updatedAt
+  rawPayloadJson    Json?
+  analysis          ListingAnalysis[]
+  pipeline          ListingPipeline?
+  events            ListingEvent[]
+  priceHistory      ListingPriceHistory[]
+
+  @@index([state, city])
+  @@index([notificationType])
+  @@index([ingestedAt])
+}
+
+model ListingAnalysis {
+  id                   String        @id @default(cuid())
+  listingId            String
+  assumptionSetId      String?
+  rentUsed             Int
+  rentSource           String
+  hudFmrSelected       Int           @default(0)
+  hudMetro             String        @default("")
+  zillowZestimate      Int           @default(0)
+  rentcastEst          Int           @default(0)
+  rentcastLow          Int           @default(0)
+  rentcastHigh         Int           @default(0)
+  pAndI                Int
+  propertyTaxMonthly   Int
+  insuranceMonthly     Int
+  totalExpensesMonthly Int
+  monthlyCf            Int
+  annualCf             Int
+  afterTaxCf           Int
+  noi                  Int
+  capRate              Float
+  cashOnCash           Float
+  cashRequired         Int
+  equity5yr            Int
+  tag                  String
+  criteriaPass         Boolean       @default(false)
+  criteriaFailReasons  String        @default("")
+  computedAt           DateTime      @default(now())
+  listing              Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  assumptionSet        AssumptionSet? @relation(fields: [assumptionSetId], references: [id], onDelete: SetNull)
+
+  @@index([listingId])
+  @@index([tag])
+}
+
+model ListingPipeline {
+  id             String         @id @default(cuid())
+  listingId      String         @unique
+  status         PipelineStatus @default(NEW)
+  manualDecision String         @default("")
+  manualNotes    String         @default("")
+  assignedTo     String         @default("")
+  updatedAt      DateTime       @updatedAt
+  listing        Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model AssumptionSet {
+  id              String            @id @default(cuid())
+  name            String
+  isDefault       Boolean           @default(false)
+  downPaymentPct  Float             @default(0.2)
+  interestRate    Float             @default(0.07)
+  loanTermYears   Int               @default(30)
+  vacancyPct      Float             @default(0.08)
+  maintenancePct  Float             @default(0.08)
+  propertyMgmtPct Float             @default(0.1)
+  insuranceRate   Float             @default(0.006)
+  closingCostPct  Float             @default(0.03)
+  rentMultiplier  Float             @default(0.007)
+  appreciationRate Float            @default(0.03)
+  maxHoa          Int               @default(300)
+  minPrice        Int               @default(50000)
+  minBeds         Float             @default(2)
+  minBaths        Float             @default(1)
+  minSqft         Int               @default(800)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  analyses        ListingAnalysis[]
+}
+
+model WorkflowRun {
+  id          String         @id @default(cuid())
+  type        String
+  status      WorkflowStatus @default(STARTED)
+  payloadJson Json?
+  resultJson  Json?
+  startedAt   DateTime       @default(now())
+  completedAt DateTime?
+}
+
+model ListingEvent {
+  id               String   @id @default(cuid())
+  listingId        String
+  eventType        String
+  eventPayloadJson Json?
+  createdAt        DateTime @default(now())
+  listing          Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([eventType])
+}
+
+model ListingPriceHistory {
+  id          String   @id @default(cuid())
+  listingId   String
+  price       Int
+  priceCut    Int      @default(0)
+  source      String   @default("ingest")
+  observedAt  DateTime @default(now())
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, observedAt])
+}

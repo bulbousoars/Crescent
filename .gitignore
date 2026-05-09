@@ -1,0 +1,12 @@
+node_modules/
+.next/
+coverage/
+.env
+.env.*
+!.env.example
+.data/
+.superpowers/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
