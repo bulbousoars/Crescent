@@ -87,4 +87,4 @@ See `docs/` for current design notes. Near-term:
 
 ## License
 
-TBD.
+[AGPL-3.0-or-later](LICENSE). If you run a modified version of Crescent as a network service, you must make the source of your modifications available to its users.
