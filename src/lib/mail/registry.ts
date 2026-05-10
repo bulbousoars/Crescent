@@ -1,4 +1,5 @@
 import { GmailProvider } from './providers/gmail';
+import { ImapProvider } from './providers/imap';
 import type { MailProvider, MailProviderId } from './provider';
 
 export interface ProviderEnv {
@@ -22,6 +23,9 @@ export function getProvider(id: MailProviderId, env: ProviderEnv = loadProviderE
       clientId: env.googleClientId,
       clientSecret: env.googleClientSecret,
     });
+  }
+  if (id === 'imap') {
+    return new ImapProvider();
   }
   throw new Error(`provider ${id} not yet implemented`);
 }

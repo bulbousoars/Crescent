@@ -3,11 +3,13 @@ import type {
   CompleteAuthArgs,
   ListNewArgs,
   ListNewResult,
+  MailAuthMaterial,
   MailAuthTokens,
   MailProvider,
   MarkProcessedArgs,
   RawMessage,
 } from '../provider';
+import { isPasswordCreds } from '../provider';
 
 const AUTH_BASE = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -229,7 +231,10 @@ export class GmailProvider implements MailProvider {
   }
 
   async listNew(args: ListNewArgs): Promise<ListNewResult> {
-    let tokens = args.tokens;
+    if (isPasswordCreds(args.tokens)) {
+      throw new Error('Gmail provider received password credentials; expected OAuth tokens');
+    }
+    let tokens: MailAuthTokens = args.tokens;
     if (Date.now() >= tokens.expiresAt - 30_000) {
       tokens = await this.refreshTokens(tokens);
     }
@@ -255,13 +260,17 @@ export class GmailProvider implements MailProvider {
   }
 
   async markProcessed(args: MarkProcessedArgs): Promise<void> {
+    if (isPasswordCreds(args.tokens)) {
+      throw new Error('Gmail provider received password credentials; expected OAuth tokens');
+    }
+    const tokens: MailAuthTokens = args.tokens;
     const labelName = args.rules.processedLabel || DEFAULT_PROCESSED_LABEL;
-    const labelId = await this.ensureLabel(labelName, args.tokens);
+    const labelId = await this.ensureLabel(labelName, tokens);
     const url = `${GMAIL_BASE}/messages/${args.providerMsgId}/modify`;
     const body = JSON.stringify({ addLabelIds: [labelId] });
     const response = await this.fetcher(url, {
       method: 'POST',
-      headers: this.authHeaders(args.tokens, 'application/json'),
+      headers: this.authHeaders(tokens, 'application/json'),
       body,
     });
     if (!response.ok) {
@@ -269,7 +278,9 @@ export class GmailProvider implements MailProvider {
     }
   }
 
-  async revoke(tokens: MailAuthTokens): Promise<void> {
+  async revoke(material: MailAuthMaterial): Promise<void> {
+    if (isPasswordCreds(material)) return;
+    const tokens: MailAuthTokens = material;
     const target = tokens.refreshToken || tokens.accessToken;
     if (!target) return;
     const body = new URLSearchParams({ token: target });

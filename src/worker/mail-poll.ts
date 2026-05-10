@@ -4,7 +4,7 @@ import { decryptJson, encryptJson, loadEncryptionKey } from '../lib/mail/crypto'
 import { getProvider } from '../lib/mail/registry';
 import { parseZillowMessage } from '../lib/parsers/zillow';
 import { ingestZillowEmail } from '../lib/ingestion';
-import type { MailAuthTokens, MailProviderId, RawMessage, MailRules } from '../lib/mail/provider';
+import type { MailAuthMaterial, MailProviderId, RawMessage, MailRules } from '../lib/mail/provider';
 
 const POLL_INTERVAL_MS = Number(process.env.MAIL_POLL_INTERVAL_MS || 60_000);
 const MAX_BACKOFF_MS = 15 * 60 * 1000;
@@ -48,7 +48,7 @@ function rulesFromAccount(account: MailAccountRow): MailRules {
 async function processAccount(prisma: PrismaClient, account: MailAccountRow, key: Buffer): Promise<void> {
   const provider = getProvider(account.provider as MailProviderId);
   const rules = rulesFromAccount(account);
-  const tokens = decryptJson<MailAuthTokens>(account.encryptedTokens, key);
+  const tokens = decryptJson<MailAuthMaterial>(account.encryptedTokens, key);
 
   const result = await provider.listNew({ tokens, rules, cursor: account.cursor });
   const finalTokens = result.refreshedTokens || tokens;
@@ -73,7 +73,7 @@ async function processMessage(
   prisma: PrismaClient,
   provider: ReturnType<typeof getProvider>,
   account: MailAccountRow,
-  tokens: MailAuthTokens,
+  tokens: MailAuthMaterial,
   rules: MailRules,
   message: RawMessage,
 ): Promise<void> {

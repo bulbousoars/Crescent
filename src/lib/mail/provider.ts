@@ -1,12 +1,28 @@
 export type MailProviderId = 'gmail' | 'microsoft' | 'imap';
 
 export interface MailAuthTokens {
+  kind?: 'oauth';
   accessToken: string;
   refreshToken?: string;
   expiresAt: number;
   scope?: string;
   tokenType?: string;
   idToken?: string;
+}
+
+export interface MailPasswordCredentials {
+  kind: 'password';
+  user: string;
+  password: string;
+  host: string;
+  port: number;
+  secure: boolean;
+}
+
+export type MailAuthMaterial = MailAuthTokens | MailPasswordCredentials;
+
+export function isPasswordCreds(m: MailAuthMaterial): m is MailPasswordCredentials {
+  return (m as MailPasswordCredentials).kind === 'password';
 }
 
 export interface MailRules {
@@ -44,7 +60,7 @@ export interface CompleteAuthArgs {
 }
 
 export interface ListNewArgs {
-  tokens: MailAuthTokens;
+  tokens: MailAuthMaterial;
   rules: MailRules;
   cursor: string;
 }
@@ -52,11 +68,11 @@ export interface ListNewArgs {
 export interface ListNewResult {
   messages: RawMessage[];
   nextCursor: string;
-  refreshedTokens?: MailAuthTokens;
+  refreshedTokens?: MailAuthMaterial;
 }
 
 export interface MarkProcessedArgs {
-  tokens: MailAuthTokens;
+  tokens: MailAuthMaterial;
   providerMsgId: string;
   rules: MailRules;
 }
@@ -64,18 +80,20 @@ export interface MarkProcessedArgs {
 export interface MailProvider {
   readonly id: MailProviderId;
 
-  beginAuth(args: BeginAuthArgs): string;
+  beginAuth?(args: BeginAuthArgs): string;
 
-  completeAuth(args: CompleteAuthArgs): Promise<{
+  completeAuth?(args: CompleteAuthArgs): Promise<{
     identity: MailIdentity;
     tokens: MailAuthTokens;
   }>;
 
-  refreshTokens(tokens: MailAuthTokens): Promise<MailAuthTokens>;
+  refreshTokens?(tokens: MailAuthTokens): Promise<MailAuthTokens>;
+
+  testCredentials?(creds: MailPasswordCredentials): Promise<MailIdentity>;
 
   listNew(args: ListNewArgs): Promise<ListNewResult>;
 
   markProcessed(args: MarkProcessedArgs): Promise<void>;
 
-  revoke(tokens: MailAuthTokens): Promise<void>;
+  revoke(tokens: MailAuthMaterial): Promise<void>;
 }

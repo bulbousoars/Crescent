@@ -32,6 +32,9 @@ export async function GET(
       { status: 500 },
     );
   }
+  if (!provider.beginAuth) {
+    return NextResponse.json({ ok: false, error: `provider ${providerId} does not support OAuth begin` }, { status: 400 });
+  }
 
   const state = randomBytes(16).toString('hex');
   const redirectUri = callbackUrl(request, providerId);

@@ -45,6 +45,9 @@ export async function GET(
       { status: 500 },
     );
   }
+  if (!provider.completeAuth) {
+    return NextResponse.json({ ok: false, error: `provider ${providerId} does not support OAuth callback` }, { status: 400 });
+  }
 
   const redirectUri = callbackUrl(request, providerId);
   const { identity, tokens } = await provider.completeAuth({ code, redirectUri });

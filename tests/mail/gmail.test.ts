@@ -92,9 +92,13 @@ describe('GmailProvider.refreshTokens', () => {
     ]);
     const provider = new GmailProvider({ ...CONFIG, fetcher });
     const refreshed = await provider.refreshTokens(TOKENS);
-    expect(refreshed.accessToken).toBe('a2');
-    expect(refreshed.refreshToken).toBe('refresh-1');
-    expect(refreshed.expiresAt).toBeGreaterThan(Date.now());
+    if ('accessToken' in refreshed) {
+      expect(refreshed.accessToken).toBe('a2');
+      expect(refreshed.refreshToken).toBe('refresh-1');
+      expect(refreshed.expiresAt).toBeGreaterThan(Date.now());
+    } else {
+      throw new Error('expected OAuth tokens');
+    }
   });
 
   it('throws when no refresh_token is available', async () => {
@@ -176,7 +180,12 @@ describe('GmailProvider.listNew', () => {
       rules: { fromAllowlist: ['x@y.com'] },
     });
     expect(exchanges).toBe(1);
-    expect(result.refreshedTokens?.accessToken).toBe('fresh');
+    const refreshed = result.refreshedTokens;
+    if (refreshed && 'accessToken' in refreshed) {
+      expect(refreshed.accessToken).toBe('fresh');
+    } else {
+      throw new Error('expected refreshedTokens with accessToken');
+    }
   });
 });
 
