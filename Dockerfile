@@ -32,9 +32,11 @@ COPY --from=deps --chown=appuser:appuser /app/node_modules ./node_modules
 COPY --from=build --chown=appuser:appuser /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build --chown=appuser:appuser /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=build --chown=appuser:appuser /app/package.json ./package.json
+COPY --from=build --chown=appuser:appuser /app/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=appuser:appuser /app/.next ./.next
 COPY --from=build --chown=appuser:appuser /app/public ./public
 COPY --from=build --chown=appuser:appuser /app/prisma ./prisma
+COPY --from=build --chown=appuser:appuser /app/src ./src
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 USER appuser

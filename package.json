@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "worker": "tsx src/worker/mail-poll.ts",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +23,7 @@
     "prisma": "^6.16.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tsx": "^4.19.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -33,7 +35,6 @@
     "eslint": "^9.17.0",
     "eslint-config-next": "^16.0.0",
     "jsdom": "^25.0.1",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

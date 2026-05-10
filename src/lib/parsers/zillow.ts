@@ -1,0 +1,314 @@
+import type { RawMessage } from '../mail/provider';
+import type { ZillowIngestionPayload } from '../ingestion';
+
+const ALLOWED_SENDER = /(?:instant-updates|my-saved-home)@mail\.zillow\.com/i;
+const ZILLOW_DOMAIN = /@(?:mail\.)?zillow\.com/i;
+
+const NOTIFICATION_PATTERNS = [
+  { type: 'Price Cut', pattern: /price cut|reduced by|cut\s+\$/i, eventClass: 'primary' },
+  { type: 'New Listing', pattern: /new listing/i, eventClass: 'primary' },
+  { type: 'Search Results', pattern: /latest results for your search|\b\d+\s+results?\s+for\b/i, eventClass: 'primary' },
+  { type: 'Open House', pattern: /open house|has an open house scheduled|\bopen:\b/i, eventClass: 'secondary' },
+  { type: 'Coming Soon', pattern: /coming soon/i, eventClass: 'secondary' },
+] as const;
+
+const FOOTER_MARKERS = [
+  'Our recommendations for you',
+  'Check out these similar homes nearby',
+  'See all saved homes',
+  'Never miss your Zillow alerts',
+  'Improve your recommendations',
+  'Privacy policy',
+  'Zillow, Inc.',
+];
+
+function clean(text: string): string {
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeAddress(address: string): string {
+  return clean(address).replace(/^(?:[\d,]+\s*(?:sq\s*ft|sqft)\s+)/i, '').trim();
+}
+
+function splitAtMarker(text: string, markers: string[]): string {
+  const source = String(text || '');
+  let end = source.length;
+  const lower = source.toLowerCase();
+  for (const marker of markers) {
+    const idx = lower.indexOf(marker.toLowerCase());
+    if (idx !== -1 && idx < end) end = idx;
+  }
+  return source.slice(0, end).trim();
+}
+
+function extractPrimarySection(text: string): string {
+  return splitAtMarker(text, FOOTER_MARKERS);
+}
+
+function splitAddress(address: string): { city: string; state: string; zip: string } {
+  if (!address) return { city: '', state: '', zip: '' };
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 3) return { city: '', state: '', zip: '' };
+  const city = parts[parts.length - 2] || '';
+  const stZip = (parts[parts.length - 1] || '').split(/\s+/);
+  return { city, state: stZip[0] || '', zip: stZip[1] || '' };
+}
+
+function parseDollarAmount(match: RegExpMatchArray | null): number {
+  if (!match) return 0;
+  const amount = parseFloat(String(match[1] || '0').replace(/,/g, ''));
+  const suffix = String(match[2] || '').toUpperCase();
+  if (Number.isNaN(amount)) return 0;
+  if (suffix === 'K') return Math.round(amount * 1000);
+  if (suffix === 'M') return Math.round(amount * 1_000_000);
+  return Math.round(amount);
+}
+
+function extractAddress(text: string): string {
+  const source = clean(text);
+  const patterns = [
+    /(\b\d+\s+[A-Za-z0-9.#' -]+(?:Avenue|Ave|Street|St|Boulevard|Blvd|Road|Rd|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Drive|Dr|Trail|Trl|Parkway|Pkwy|Terrace|Ter)\b[^,]*,\s*[A-Za-z\s]+,\s*[A-Z]{2}(?:\s*\d{5})?)/i,
+    /(\b\d+\s+[A-Za-z0-9.#' -]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5})/i,
+    /(\b\d+\s+[A-Za-z0-9.#' -]+,\s*[A-Za-z\s]+,\s*[A-Z]{2})/i,
+  ];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (match) return normalizeAddress(match[1]);
+  }
+  return '';
+}
+
+function decodeZillowTarget(url: string): string {
+  let candidate = String(url || '');
+  for (let i = 0; i < 2; i += 1) {
+    const targetMatch = candidate.match(/[?&]target=([^&\s]+)/i);
+    if (!targetMatch) break;
+    try {
+      candidate = decodeURIComponent(targetMatch[1]);
+    } catch {
+      break;
+    }
+  }
+  const zpidTarget = candidate.match(/\/zpid_target\/(\d+)_zpid/i);
+  if (zpidTarget) return `https://www.zillow.com/homedetails/${zpidTarget[1]}_zpid/`;
+  const direct = candidate.match(/https?:\/\/(?:www\.)?zillow\.com\/homedetails\/[^\s"'<>]+/i);
+  if (direct) return direct[0].split('?')[0];
+  return '';
+}
+
+interface CandidateLink {
+  raw: string;
+  normalized: string;
+  index: number;
+}
+
+function extractCandidateLinks(text: string): CandidateLink[] {
+  const source = String(text || '');
+  const urlRegex = /https?:\/\/[^\s"'<>]+/gi;
+  const out: CandidateLink[] = [];
+  for (const match of source.matchAll(urlRegex)) {
+    const raw = match[0];
+    const normalized =
+      decodeZillowTarget(raw) ||
+      (/https?:\/\/(?:www\.)?zillow\.com\/homedetails\//i.test(raw) ? raw.split('?')[0] : '');
+    if (normalized) out.push({ raw, normalized, index: match.index ?? 0 });
+  }
+  return out;
+}
+
+function extractCandidateUrls(text: string): string[] {
+  return Array.from(new Set(extractCandidateLinks(text).map((l) => l.normalized)));
+}
+
+interface BuildListingResult {
+  listingUrl: string;
+  zpid: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  price: number;
+  priceCut: number;
+  beds: number;
+  baths: number;
+  sqft: number;
+  hoa: number;
+  yearBuilt: string;
+  lotSize: string;
+}
+
+function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingResult | null {
+  const raw = String(rawChunk || '');
+  const normalized = clean(raw);
+  const allUrls = [...candidateUrls, ...extractCandidateUrls(raw), ...extractCandidateUrls(normalized)].filter(Boolean);
+  const listingUrl = allUrls[0] ? allUrls[0].split('?')[0] : '';
+  if (!listingUrl) return null;
+  let parsedHost: string;
+  try {
+    parsedHost = new URL(listingUrl).hostname;
+  } catch {
+    return null;
+  }
+  if (!parsedHost) return null;
+
+  const zpidMatch = listingUrl.match(/(?:\/|_)(\d+)_zpid/i);
+  const zpid = zpidMatch ? zpidMatch[1] : '';
+  if (!zpid) return null;
+
+  const address = extractAddress(raw);
+  if (!address) return null;
+  const { city, state, zip } = splitAddress(address);
+
+  const price = parseDollarAmount(normalized.match(/\$([\d,.]+)\s*([KkMm])?/));
+  const priceCut = parseDollarAmount(
+    normalized.match(/price cut[:\s]*\$([\d,.]+)\s*([KkMm])?/i) ||
+      normalized.match(/reduced\s+by\s+\$([\d,.]+)\s*([KkMm])?/i) ||
+      normalized.match(/cut\s+\$([\d,.]+)\s*([KkMm])?/i),
+  );
+  const bedsMatch = normalized.match(/(?:^|[^\w])(\d+(?:\.\d+)?)\s*(?:bd|bed|beds|bdr)\b/i);
+  const bathsMatch = normalized.match(/(?:^|[^\w])(\d+(?:\.\d+)?)\s*(?:ba|bath|baths)\b/i);
+  const sqftMatch = normalized.match(/(?:^|[^\w])([\d,]+)\s*(?:sq\s*ft|sqft)\b/i);
+  const hoa = parseDollarAmount(normalized.match(/HOA[:\s]+\$([\d,.]+)\s*([KkMm])?/i));
+  const ybMatch = normalized.match(/(?:built|year built)[:\s]+(\d{4})/i);
+  const lotMatch = normalized.match(/([\d,.]+\s*(?:acres?|sqft|sq\s*ft))\s*lot/i);
+
+  return {
+    listingUrl,
+    zpid,
+    address,
+    city,
+    state,
+    zip,
+    price,
+    priceCut,
+    beds: bedsMatch ? parseFloat(bedsMatch[1]) : 0,
+    baths: bathsMatch ? parseFloat(bathsMatch[1]) : 0,
+    sqft: sqftMatch ? parseInt(sqftMatch[1].replace(/,/g, ''), 10) : 0,
+    hoa,
+    yearBuilt: ybMatch ? ybMatch[1] : '',
+    lotSize: lotMatch ? clean(lotMatch[1]) : '',
+  };
+}
+
+function extractSummaryListings(rawText: string): BuildListingResult[] {
+  const source = String(rawText || '');
+  const links = extractCandidateLinks(source);
+  const out: BuildListingResult[] = [];
+  for (const link of links) {
+    const chunk = source.slice(Math.max(0, link.index - 500), Math.min(source.length, link.index + 900));
+    const parsed = buildListing(chunk, [link.normalized]);
+    if (parsed) out.push(parsed);
+  }
+  // de-dup by zpid since digests often repeat the same listing
+  const seen = new Set<string>();
+  return out.filter((l) => (seen.has(l.zpid) ? false : seen.add(l.zpid)));
+}
+
+function extractPrimaryChunk(rawText: string): string {
+  const source = String(rawText || '');
+  const links = extractCandidateLinks(source);
+  if (!links.length) return source;
+  const link = links[0];
+  return source.slice(Math.max(0, link.index - 600), Math.min(source.length, link.index + 400));
+}
+
+export interface ZillowParseClassification {
+  notificationType: string;
+  eventClass: 'primary' | 'secondary' | 'ignore';
+  searchName: string;
+}
+
+export function classifyZillowEmail(message: RawMessage): ZillowParseClassification | null {
+  const fromLower = (message.fromAddress || '').toLowerCase();
+  if (!ZILLOW_DOMAIN.test(fromLower)) return null;
+  if (!ALLOWED_SENDER.test(fromLower)) return null;
+
+  const subject = clean(message.subject || '');
+  const body = clean([message.textBody, message.htmlBody, message.snippet].filter(Boolean).join('\n'));
+
+  let notificationType = 'Unknown';
+  let eventClass: 'primary' | 'secondary' | 'ignore' = 'ignore';
+  for (const ev of NOTIFICATION_PATTERNS) {
+    if (ev.pattern.test(subject) || ev.pattern.test(body)) {
+      notificationType = ev.type;
+      eventClass = ev.eventClass;
+      break;
+    }
+  }
+  if (eventClass === 'ignore') return null;
+
+  const searchMatch =
+    subject.match(/Your\s+'([^']+)'\s+Search/i) ||
+    subject.match(/search\s+'([^']+)'/i) ||
+    body.match(/latest results for your search\s+'([^']+)'/i) ||
+    subject.match(/Results?\s+for\s+'([^']+)'/i);
+
+  const searchName = searchMatch ? clean(searchMatch[1]) : clean(subject.substring(0, 120));
+  return { notificationType, eventClass, searchName };
+}
+
+export interface ParsedZillowEmail {
+  classification: ZillowParseClassification;
+  payloads: ZillowIngestionPayload[];
+}
+
+export function parseZillowMessage(message: RawMessage): ParsedZillowEmail | null {
+  const classification = classifyZillowEmail(message);
+  if (!classification) return null;
+
+  const subject = clean(message.subject || '');
+  const rawBody = [message.textBody, message.htmlBody, message.snippet].filter(Boolean).join('\n');
+  const primarySection = extractPrimarySection(rawBody);
+  const primaryChunk = extractPrimaryChunk(primarySection);
+
+  const buildPayload = (listing: BuildListingResult): ZillowIngestionPayload => ({
+    zpid: listing.zpid,
+    listingId: listing.zpid,
+    listingUrl: listing.listingUrl,
+    address: listing.address,
+    city: listing.city,
+    state: (listing.state || '').slice(0, 2),
+    zip: listing.zip,
+    price: listing.price,
+    priceCut: listing.priceCut,
+    beds: listing.beds,
+    baths: listing.baths,
+    sqft: listing.sqft,
+    hoa: listing.hoa,
+    hoaMonthly: listing.hoa,
+    yearBuilt: listing.yearBuilt,
+    lotSize: listing.lotSize,
+    notificationType: classification.notificationType,
+    searchName: classification.searchName,
+    gmailMessageId: message.providerMsgId,
+    gmailThreadId: message.threadId,
+    rawPayload: {
+      providerMsgId: message.providerMsgId,
+      threadId: message.threadId,
+      fromAddress: message.fromAddress,
+      subject: message.subject,
+      receivedAt: message.receivedAt.toISOString(),
+      parsedAt: new Date().toISOString(),
+    },
+  });
+
+  let listings: BuildListingResult[] = [];
+  if (classification.notificationType === 'Search Results') {
+    listings = extractSummaryListings(primarySection);
+  } else {
+    const single = buildListing(`${subject} ${primaryChunk}`, []);
+    if (single) listings = [single];
+  }
+
+  return {
+    classification,
+    payloads: listings.map(buildPayload),
+  };
+}
