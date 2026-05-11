@@ -109,7 +109,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
   const addressCell = (
     <td>
       <Link href={detailHref}><strong>{listing.address}</strong></Link>
-      <div className="muted">{listing.zip} · {ingestedAtDisplay}</div>
+      <div className="muted">{listing.zip}</div>
       <a className="zillow-link" href={listing.listingUrl} target="_blank" rel="noreferrer">
         Zillow <ExternalLink size={12} />
       </a>
@@ -120,6 +120,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
     return (
       <tr className="row-editing">
         {addressCell}
+        <td>{ingestedAtDisplay}</td>
         <td><span className="status">{listing.status.replaceAll('_', ' ')}</span></td>
         <td><input className="editable-input" type="number" min={0} step="100" value={draft.price} onChange={(e) => setField('price', e.target.value)} /></td>
         <td>{listing.state}</td>
@@ -148,6 +149,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
   return (
     <tr>
       {addressCell}
+      <td>{ingestedAtDisplay}</td>
       <td><span className="status">{listing.status.replaceAll('_', ' ')}</span></td>
       <td>{currency(listing.price)}</td>
       <td>{listing.state}</td>

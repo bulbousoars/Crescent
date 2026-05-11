@@ -41,7 +41,7 @@ function rulesFromAccount(account: MailAccountRow): MailRules {
   if (account.rules && typeof account.rules === 'object') return account.rules as MailRules;
   return {
     fromAllowlist: ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
-    processedLabel: 'Crescent/Processed',
+    processedLabel: 'Real-Estate',
   };
 }
 

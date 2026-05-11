@@ -98,6 +98,7 @@ export default async function DataPage({
           <thead>
             <tr>
               <th>Full address</th>
+              <th>Date Added</th>
               <th>Status</th>
               <th>Price</th>
               <th>State</th>

@@ -11,12 +11,17 @@ import type {
 } from '../provider';
 import { isPasswordCreds } from '../provider';
 
-const DEFAULT_PROCESSED_KEYWORD = 'Crescent-Processed';
+const DEFAULT_PROCESSED_KEYWORD = 'Real-Estate';
 const FETCH_BATCH_LIMIT = 50;
 
 function processedKeywordFromRules(rules: { processedLabel?: string }): string {
   const raw = (rules.processedLabel || DEFAULT_PROCESSED_KEYWORD).replace(/[^A-Za-z0-9_-]+/g, '-');
   return raw || DEFAULT_PROCESSED_KEYWORD;
+}
+
+function isGmailHost(host: string): boolean {
+  const normalized = (host || '').toLowerCase();
+  return normalized.includes('gmail.com') || normalized.includes('googlemail.com');
 }
 
 function parseCursor(cursor: string): { uidValidity: number; lastUid: number } {
@@ -185,7 +190,15 @@ export class ImapProvider implements MailProvider {
     try {
       await client.connect();
       await client.mailboxOpen('INBOX', { readOnly: false });
-      await client.messageFlagsAdd(uid, [keyword], { uid: true });
+      await client.messageFlagsAdd(uid, ['\\Seen', keyword], { uid: true });
+      if (isGmailHost(args.tokens.host)) {
+        // Gmail IMAP labels use keyword semantics; remove Inbox so processed mail is archived.
+        try {
+          await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
+        } catch {
+          // Best-effort on providers that do not support label semantics.
+        }
+      }
       await client.logout();
     } catch (error) {
       try {

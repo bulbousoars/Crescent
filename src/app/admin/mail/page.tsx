@@ -163,6 +163,12 @@ export default async function MailAdminPage({
               <span className="help">One email address per line. Only messages from these senders are polled.</span>
             </label>
 
+            <label className="admin-field">
+              <span>Processed label</span>
+              <input className="field" name="processedLabel" defaultValue="Real-Estate" />
+              <span className="help">Applied after ingest; Gmail IMAP also removes processed mail from Inbox.</span>
+            </label>
+
             <button type="submit" className="button primary" style={{ marginTop: 4 }}>
               Connect IMAP
             </button>

@@ -18,6 +18,7 @@ class MockImapFlow {
   public fetchedMessages: Map<number, FetchedMessage> = new Map();
   public uidValidity = 12345;
   public flagsAdded: Array<{ uid: number; keywords: string[] }> = [];
+  public flagsRemoved: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
 
   async connect() {
     this.calls.push('connect');
@@ -38,6 +39,10 @@ class MockImapFlow {
   async messageFlagsAdd(uid: number, keywords: string[]) {
     this.calls.push(`flag:${uid}:${keywords.join(',')}`);
     this.flagsAdded.push({ uid, keywords });
+  }
+  async messageFlagsRemove(uid: number, keywords: string[], options?: Record<string, unknown>) {
+    this.calls.push(`flag-remove:${uid}:${keywords.join(',')}`);
+    this.flagsRemoved.push({ uid, keywords, options });
   }
   async logout() {
     this.calls.push('logout');
@@ -161,7 +166,7 @@ describe('ImapProvider.listNew', () => {
 });
 
 describe('ImapProvider.markProcessed', () => {
-  it('adds the configured keyword to the message UID', async () => {
+  it('marks message as seen and adds the configured keyword', async () => {
     const mock = new MockImapFlow();
     const provider = new ImapProvider({
       imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
@@ -171,8 +176,26 @@ describe('ImapProvider.markProcessed', () => {
       providerMsgId: '12345:42',
       rules: { processedLabel: 'Crescent-Processed' },
     });
-    expect(mock.flagsAdded).toEqual([{ uid: 42, keywords: ['Crescent-Processed'] }]);
-    expect(mock.calls).toContain('flag:42:Crescent-Processed');
+    expect(mock.flagsAdded).toEqual([{ uid: 42, keywords: ['\\Seen', 'Crescent-Processed'] }]);
+    expect(mock.calls).toContain('flag:42:\\Seen,Crescent-Processed');
+    expect(mock.flagsRemoved).toEqual([]);
+    expect(mock.calls).not.toContain('flag-remove:42:\\Inbox');
+    expect(mock.calls).toContain('logout');
+  });
+
+  it('removes \\Inbox label on Gmail IMAP accounts', async () => {
+    const mock = new MockImapFlow();
+    const provider = new ImapProvider({
+      imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
+    });
+    await provider.markProcessed({
+      tokens: { ...CREDS, host: 'imap.gmail.com' },
+      providerMsgId: '12345:42',
+      rules: { processedLabel: 'Real-Estate' },
+    });
+    expect(mock.flagsAdded).toEqual([{ uid: 42, keywords: ['\\Seen', 'Real-Estate'] }]);
+    expect(mock.calls).toContain('flag-remove:42:\\Inbox');
+    expect(mock.flagsRemoved).toEqual([{ uid: 42, keywords: ['\\Inbox'], options: { uid: true, useLabels: true } }]);
     expect(mock.calls).toContain('logout');
   });
 });

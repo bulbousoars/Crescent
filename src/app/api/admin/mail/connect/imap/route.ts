@@ -18,7 +18,7 @@ const formSchema = z.object({
     .optional()
     .transform((v) => (typeof v === 'string' ? v === 'on' || v === 'true' : Boolean(v ?? true))),
   fromAllowlist: z.string().optional().default(''),
-  processedLabel: z.string().optional().default('Crescent-Processed'),
+  processedLabel: z.string().optional().default('Real-Estate'),
 });
 
 export async function POST(request: NextRequest) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         fromAllowlist: fromAllowlist.length
           ? fromAllowlist
           : ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
-        processedLabel: parsed.processedLabel || 'Crescent-Processed',
+        processedLabel: parsed.processedLabel || 'Real-Estate',
       },
       lastError: '',
       consecutiveErrors: 0,
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         fromAllowlist: fromAllowlist.length
           ? fromAllowlist
           : ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
-        processedLabel: parsed.processedLabel || 'Crescent-Processed',
+        processedLabel: parsed.processedLabel || 'Real-Estate',
       },
     },
   });
