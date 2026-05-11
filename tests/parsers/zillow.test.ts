@@ -88,6 +88,21 @@ Zillow, Inc. 2026`;
     expect(p.gmailMessageId).toBe('gmail-id-1');
   });
 
+  it('prefers the listing price over "Est. payment $/mo" amounts', () => {
+    const body = `New listing
+
+10 Market St, Camden, NJ 08102
+
+Est. payment $2,345/mo
+$175,000
+3 bd | 2 ba | 1,280 sqft
+
+https://www.zillow.com/homedetails/10-Market-St-Camden-NJ-08102/12345_zpid/`;
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    expect(result).not.toBeNull();
+    expect(result!.payloads[0].price).toBe(175000);
+  });
+
   it('extracts a price cut amount', () => {
     const body = `Price cut! 10 Market St, Camden, NJ 08102. Reduced by $5,000. Now $170,000. 3 bd 2 ba 1280 sqft.
 https://www.zillow.com/homedetails/10-Market-St-Camden-NJ-08102/12345_zpid/`;

@@ -71,6 +71,27 @@ function parseDollarAmount(match: RegExpMatchArray | null): number {
   return Math.round(amount);
 }
 
+function extractLikelyListingPrice(text: string): number {
+  const source = String(text || '');
+  const re = /\$([\d,.]+)\s*([KkMm])?/g;
+  const candidates: number[] = [];
+  for (const m of source.matchAll(re)) {
+    const value = parseDollarAmount(m as unknown as RegExpMatchArray);
+    if (!value) continue;
+    const suffix = String(m[2] || '').toUpperCase();
+    const after = source.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 12).toLowerCase();
+    const looksMonthly = /\/\s*mo\b/.test(after) || /\bper\s+month\b/.test(after) || /\bmonthly\b/.test(after);
+
+    // Filter out monthly payment / rent amounts and tiny numbers that are very likely not list price.
+    if (looksMonthly) continue;
+    if (value < 10_000 && suffix !== 'K' && suffix !== 'M') continue;
+    candidates.push(value);
+  }
+  if (candidates.length === 0) return 0;
+  // Choose the largest plausible dollar amount as the list price (beats "reduced by $5,000", etc.)
+  return Math.max(...candidates);
+}
+
 function extractAddress(text: string): string {
   const source = clean(text);
   const patterns = [
@@ -166,7 +187,7 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
   if (!address) return null;
   const { city, state, zip } = splitAddress(address);
 
-  const price = parseDollarAmount(normalized.match(/\$([\d,.]+)\s*([KkMm])?/));
+  const price = extractLikelyListingPrice(normalized);
   const priceCut = parseDollarAmount(
     normalized.match(/price cut[:\s]*\$([\d,.]+)\s*([KkMm])?/i) ||
       normalized.match(/reduced\s+by\s+\$([\d,.]+)\s*([KkMm])?/i) ||
