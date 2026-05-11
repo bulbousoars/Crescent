@@ -839,8 +839,10 @@ textarea.field {
 
 /* --- Status banner (success / error) --- */
 .banner {
+  align-items: center;
   border-left: 3px solid transparent;
   border-radius: 6px;
+  color: var(--ink);
   display: flex;
   font-size: 14px;
   gap: 10px;
@@ -849,19 +851,26 @@ textarea.field {
 }
 
 .banner.success {
-  background: #dfeee5;
+  background: color-mix(in srgb, var(--good) 14%, var(--surface));
   border-left-color: var(--good);
-  color: var(--accent-strong);
 }
 
 .banner.error {
-  background: #f1dddc;
+  background: color-mix(in srgb, var(--bad) 14%, var(--surface));
   border-left-color: var(--bad);
+}
+
+.banner svg {
+  color: var(--good);
+  flex-shrink: 0;
+}
+
+.banner.error svg {
   color: var(--bad);
 }
 
 .banner code {
-  background: rgba(0, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   padding: 1px 4px;
   border-radius: 3px;
 }
