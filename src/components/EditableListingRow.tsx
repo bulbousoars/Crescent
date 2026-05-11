@@ -110,8 +110,13 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
     <td>
       <Link href={detailHref}><strong>{listing.address}</strong></Link>
       <div className="muted">{listing.zip}</div>
-      <a className="zillow-link" href={listing.listingUrl} target="_blank" rel="noreferrer">
-        Zillow <ExternalLink size={12} />
+    </td>
+  );
+
+  const zillowCell = (
+    <td>
+      <a className="zillow-link zillow-link--cell" href={listing.listingUrl} target="_blank" rel="noreferrer">
+        Open <ExternalLink size={12} />
       </a>
     </td>
   );
@@ -131,6 +136,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
         <td><input className="editable-input" type="number" min={0} step="1" value={draft.hoaMonthly} onChange={(e) => setField('hoaMonthly', e.target.value)} /></td>
         <td>{monthlyCfDisplay}</td>
         <td>{capRateDisplay}</td>
+        {zillowCell}
         <td>
           <div className="row-actions">
             <button type="button" className="icon-btn good" onClick={save} disabled={status === 'saving'} title="Save changes">
@@ -160,6 +166,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
       <td>{currency(listing.hoaMonthly)}</td>
       <td>{monthlyCfDisplay}</td>
       <td>{capRateDisplay}</td>
+      {zillowCell}
       <td>
         <div className="row-actions">
           <button type="button" className="icon-btn" onClick={startEdit} title="Edit values">

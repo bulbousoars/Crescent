@@ -109,6 +109,7 @@ export default async function DataPage({
               <th>HOA</th>
               <th>Monthly CF</th>
               <th>Cap</th>
+              <th>Zillow</th>
               <th>Actions</th>
             </tr>
           </thead>
