@@ -60,6 +60,9 @@ The mail-provider work in progress will move parsing inside the app so external 
 | `DATABASE_URL` | yes | PostgreSQL connection string |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | yes (compose) | Used by the bundled Postgres service and to build `DATABASE_URL` |
 | `INGESTION_API_TOKEN` | yes | Bearer token guarding `POST /api/ingestion/*` |
+| `ADMIN_API_TOKEN` | no | Bearer token for `/admin/*`. Falls back to `INGESTION_API_TOKEN` if unset. |
+| `ADMIN_FORWARD_AUTH_HEADER` | no | Header set by an upstream reverse proxy (Authentik, oauth2-proxy, Tailscale Serve, etc.) that proves the user is authenticated. When set, requests carrying this header are treated as admin-authorized without needing `ADMIN_API_TOKEN`. Example: `x-authentik-email`. |
+| `ADMIN_FORWARD_AUTH_ALLOWLIST` | no | Comma-separated allowlist of accepted values for `ADMIN_FORWARD_AUTH_HEADER`. If empty (and the header var is set), any non-empty value is accepted — only safe when the upstream proxy is the only way to reach the app. |
 | `NEXT_PUBLIC_APP_URL` | no | Public base URL of the app (used in links) |
 | `APP_BIND` | no | Bind address for the Compose port mapping (default `0.0.0.0`) |
 | `APP_PORT` | no | Host port for the Compose port mapping (default `3000`) |
