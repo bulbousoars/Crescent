@@ -875,6 +875,11 @@ textarea.field {
   border-radius: 3px;
 }
 
+/* --- Admin content wrapper: comfortable reading width inside .workspace --- */
+.admin-content {
+  max-width: 56rem;
+}
+
 /* --- Admin form helpers (scoped, no collision with the existing 3-col .form-grid) --- */
 .admin-form {
   display: grid;

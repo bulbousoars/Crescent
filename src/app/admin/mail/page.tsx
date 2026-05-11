@@ -46,6 +46,7 @@ export default async function MailAdminPage({
         <span className="status">{accounts.length} connected</span>
       </div>
 
+      <div className="admin-content">
       {params.connected ? (
         <div className="banner success">
           <CheckCircle2 size={16} />
@@ -182,6 +183,7 @@ export default async function MailAdminPage({
             Connect via Gmail OAuth
           </Link>
         </section>
+      </div>
       </div>
     </div>
   );
