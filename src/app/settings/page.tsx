@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import Link from 'next/link';
-import { Mail, LogOut, KeyRound, ShieldCheck } from 'lucide-react';
+import { Mail, LogOut, KeyRound, ShieldCheck, ExternalLink } from 'lucide-react';
 import { adminToken, ADMIN_COOKIE, isAdminAuthorized } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +31,7 @@ async function getAuthState(): Promise<AuthState> {
 
 export default async function SettingsPage() {
   const state = await getAuthState();
+  const idpLogoutUrl = process.env.IDP_LOGOUT_URL || 'https://auth.dugganco.com/flows/-/default/invalidation/';
 
   return (
     <div className="workspace">
@@ -42,46 +43,49 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      <section style={{ display: 'grid', gap: '1.5rem', maxWidth: '40rem' }}>
-        <article style={cardStyle}>
-          <header style={cardHeadStyle}>
-            <ShieldCheck size={18} />
-            <h2 style={cardTitleStyle}>Authentication</h2>
-          </header>
-          <AuthStateBlock state={state} />
+      <div className="grid-2" style={{ marginTop: 14 }}>
+        <article className="card">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px' }}>
+            <ShieldCheck size={18} /> Authentication
+          </h3>
+          <AuthStateBlock state={state} idpLogoutUrl={idpLogoutUrl} />
         </article>
 
-        <article style={cardStyle}>
-          <header style={cardHeadStyle}>
-            <Mail size={18} />
-            <h2 style={cardTitleStyle}>Mail accounts</h2>
-          </header>
-          <p style={{ margin: '0 0 0.75rem' }}>
+        <article className="card">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px' }}>
+            <Mail size={18} /> Mail accounts
+          </h3>
+          <p className="muted" style={{ marginTop: 0 }}>
             Connect and manage the mailboxes Crescent polls for Zillow alerts.
           </p>
-          <Link href="/admin/mail">Open mail accounts &rarr;</Link>
+          <Link href="/admin/mail" className="button primary">
+            Open mail accounts
+          </Link>
         </article>
-      </section>
+      </div>
     </div>
   );
 }
 
-function AuthStateBlock({ state }: { state: AuthState }) {
+function AuthStateBlock({ state, idpLogoutUrl }: { state: AuthState; idpLogoutUrl: string }) {
   if (state.kind === 'open') {
     return (
       <p style={{ margin: 0 }}>
-        No <code>ADMIN_API_TOKEN</code> configured &mdash; admin actions are open. Set the
-        environment variable to require sign-in.
+        No <code>ADMIN_API_TOKEN</code> configured — admin actions are open. Set the environment
+        variable to require sign-in.
       </p>
     );
   }
   if (state.kind === 'cookie') {
     return (
-      <div style={{ display: 'grid', gap: '0.75rem' }}>
-        <p style={{ margin: 0 }}>Signed in with the configured admin token.</p>
+      <div className="form-grid">
+        <p style={{ margin: 0 }}>
+          <span className="tag good" style={{ marginRight: 8 }}>signed in</span>
+          via the admin token cookie on this device.
+        </p>
         <form action="/api/admin/logout" method="POST">
-          <button type="submit" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            <LogOut size={16} /> Sign out
+          <button type="submit" className="button">
+            <LogOut size={14} /> Sign out
           </button>
         </form>
       </div>
@@ -89,57 +93,40 @@ function AuthStateBlock({ state }: { state: AuthState }) {
   }
   if (state.kind === 'forward-auth') {
     return (
-      <div style={{ display: 'grid', gap: '0.5rem' }}>
+      <div className="form-grid">
         <p style={{ margin: 0 }}>
-          Signed in via upstream forward-auth as <code>{state.value}</code>.
+          <span className="tag good" style={{ marginRight: 8 }}>signed in</span>
+          via your identity provider as <code>{state.value}</code>.
         </p>
-        <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>
-          Header: <code>{state.header}</code>. Sign out through your identity provider.
+        <p className="muted" style={{ margin: 0 }}>
+          Header: <code>{state.header}</code>. Crescent has no separate session of its own here —
+          signing out ends your session at the IdP, which will also drop your access to other
+          forward-auth-protected services.
         </p>
+        <a className="button" href={idpLogoutUrl} target="_blank" rel="noreferrer">
+          <LogOut size={14} /> Sign out via identity provider
+          <ExternalLink size={11} style={{ marginLeft: 2 }} />
+        </a>
       </div>
     );
   }
   return (
-    <div style={{ display: 'grid', gap: '0.75rem' }}>
+    <div className="form-grid">
       <p style={{ margin: 0 }}>
         Not signed in. Paste the <code>ADMIN_API_TOKEN</code> configured on the server to enable
         admin actions on this device.
       </p>
-      <form
-        method="GET"
-        action="/api/admin/login"
-        style={{ display: 'grid', gap: '0.5rem', maxWidth: '20rem' }}
-      >
+      <form method="GET" action="/api/admin/login" className="form-grid" style={{ maxWidth: '20rem' }}>
         <input type="hidden" name="next" value="/settings" />
-        <label style={{ display: 'grid', gap: '0.25rem' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            <KeyRound size={14} /> Admin token
+        <label className="form-row">
+          <span>
+            <KeyRound size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            Admin token
           </span>
-          <input type="password" name="token" autoComplete="off" required autoFocus />
+          <input className="field" type="password" name="token" autoComplete="off" required autoFocus />
         </label>
-        <button type="submit">Sign in</button>
+        <button type="submit" className="button primary">Sign in</button>
       </form>
     </div>
   );
 }
-
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--border, rgba(255,255,255,0.08))',
-  borderRadius: '0.75rem',
-  padding: '1.25rem',
-  background: 'var(--card-bg, rgba(255,255,255,0.02))',
-  display: 'grid',
-  gap: '0.75rem',
-};
-
-const cardHeadStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-};
-
-const cardTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: '1.05rem',
-  fontWeight: 600,
-};

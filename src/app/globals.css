@@ -820,3 +820,83 @@ textarea.field {
   width: 90px;
 }
 
+
+/* --- Breadcrumb / back link --- */
+.breadcrumb {
+  align-items: center;
+  color: var(--muted, #6b7280);
+  display: inline-flex;
+  font-size: 13px;
+  gap: 4px;
+  margin-bottom: 8px;
+  text-decoration: none;
+}
+
+.breadcrumb:hover {
+  color: var(--text, inherit);
+  text-decoration: underline;
+}
+
+/* --- Status banner (success / error) --- */
+.banner {
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  display: flex;
+  font-size: 14px;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 10px 14px;
+}
+
+.banner.success {
+  background: #dfeee5;
+  border-left-color: var(--good);
+  color: var(--accent-strong);
+}
+
+.banner.error {
+  background: #f1dddc;
+  border-left-color: var(--bad);
+  color: var(--bad);
+}
+
+.banner code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* --- Form helpers used by admin pages --- */
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.form-row {
+  display: grid;
+  gap: 4px;
+}
+
+.form-row > span,
+.form-row > label > span:first-child {
+  color: var(--muted, #6b7280);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.form-row .help {
+  color: var(--muted, #6b7280);
+  font-size: 12px;
+  margin-top: 2px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}

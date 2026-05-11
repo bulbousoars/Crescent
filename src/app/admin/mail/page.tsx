@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ArrowLeft, CheckCircle2, AlertCircle, Mail, KeyRound, ExternalLink } from 'lucide-react';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import { prisma } from '@/lib/prisma';
 
@@ -24,120 +25,160 @@ export default async function MailAdminPage({
     include: { _count: { select: { messages: true } } },
   });
   const params = await searchParams;
-  const callbackBase = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/admin/mail/callback/gmail';
+  const callbackBase =
+    (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/admin/mail/callback/gmail';
 
   return (
     <div className="workspace">
+      <Link href="/settings" className="breadcrumb">
+        <ArrowLeft size={14} /> Settings
+      </Link>
+
       <div className="page-head workspace-head">
         <div>
           <div className="eyebrow">Admin</div>
           <h1>Mail accounts</h1>
           <p className="subhead">
-            Mailboxes Crescent polls for listing emails. Tokens / passwords are encrypted at rest with{' '}
+            Mailboxes Crescent polls for listing emails. Tokens and passwords are encrypted at rest with{' '}
             <code>MAIL_ENCRYPTION_KEY</code>.
           </p>
         </div>
-        <span className="muted">{accounts.length} connected</span>
+        <span className="status">{accounts.length} connected</span>
       </div>
 
-      {params.connected ? <p className="muted">Account connected.</p> : null}
-      {params.error ? <p className="muted">Error: {params.error}</p> : null}
+      {params.connected ? (
+        <div className="banner success">
+          <CheckCircle2 size={16} />
+          <span>Account connected. The worker will pick it up on the next poll.</span>
+        </div>
+      ) : null}
+      {params.error ? (
+        <div className="banner error">
+          <AlertCircle size={16} />
+          <span>{params.error}</span>
+        </div>
+      ) : null}
 
-      <div className="table-wrap data-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Last sync</th>
-              <th>Messages seen</th>
-              <th>Last error</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.length === 0 ? (
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="table-wrap data-table">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={6} className="muted">
-                  No accounts connected yet.
-                </td>
+                <th>Provider</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Last sync</th>
+                <th>Messages</th>
+                <th>Last error</th>
               </tr>
-            ) : (
-              accounts.map((account) => (
-                <tr key={account.id}>
-                  <td>{account.provider}</td>
-                  <td>{account.email}</td>
-                  <td>{account.enabled ? 'enabled' : 'disabled'}</td>
-                  <td>{formatDate(account.lastSyncAt)}</td>
-                  <td>{account._count.messages}</td>
-                  <td>{account.lastError || '-'}</td>
+            </thead>
+            <tbody>
+              {accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 18 }}>
+                    No accounts connected yet. Use the form below to add one.
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                accounts.map((account) => (
+                  <tr key={account.id}>
+                    <td>{account.provider}</td>
+                    <td>{account.email}</td>
+                    <td>
+                      <span className={`tag ${account.enabled ? 'good' : 'warn'}`}>
+                        {account.enabled ? 'enabled' : 'disabled'}
+                      </span>
+                    </td>
+                    <td>{formatDate(account.lastSyncAt)}</td>
+                    <td>{account._count.messages}</td>
+                    <td className="muted">{account.lastError || '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <h2 style={{ marginTop: '2rem' }}>Connect a new account</h2>
+      <h2 style={{ marginTop: 28 }}>Connect a new account</h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
-        <section>
-          <h3>IMAP (recommended)</h3>
-          <p className="muted">
-            Works for Gmail, Outlook, Fastmail — anything with IMAP. For Gmail: enable 2FA, generate an{' '}
+      <div className="grid-2" style={{ marginTop: 10 }}>
+        <section className="card">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
+            <Mail size={18} /> IMAP <span className="status" style={{ marginLeft: 6 }}>recommended</span>
+          </h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Works for Gmail, Outlook, Fastmail — anything with IMAP. For Gmail, enable 2-Step
+            Verification then generate an{' '}
             <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
-              App Password
+              App Password <ExternalLink size={12} style={{ verticalAlign: 'baseline' }} />
             </a>
-            , and paste it as the password.
+            . Be sure IMAP is enabled at Gmail Settings → Forwarding and POP/IMAP.
           </p>
-          <form
-            method="POST"
-            action="/api/admin/mail/connect/imap"
-            style={{ display: 'grid', gap: '0.5rem', maxWidth: '24rem' }}
-          >
-            <label>
-              Email
-              <input name="email" type="email" required placeholder="you@example.com" />
+
+          <form method="POST" action="/api/admin/mail/connect/imap" className="form-grid">
+            <label className="form-row">
+              <span>Email</span>
+              <input className="field" name="email" type="email" required placeholder="you@example.com" />
             </label>
-            <label>
-              IMAP host
-              <input name="host" required defaultValue="imap.gmail.com" />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <label className="form-row">
+                <span>IMAP host</span>
+                <input className="field" name="host" required defaultValue="imap.gmail.com" />
+              </label>
+              <label className="form-row">
+                <span>Port</span>
+                <input className="field" name="port" type="number" required defaultValue={993} />
+              </label>
+            </div>
+
+            <label className="form-row">
+              <span>IMAP user</span>
+              <input className="field" name="user" required placeholder="usually your full email" />
             </label>
-            <label>
-              Port
-              <input name="port" type="number" required defaultValue={993} />
+
+            <label className="form-row">
+              <span>
+                <KeyRound size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                Password / App Password
+              </span>
+              <input className="field" name="password" type="password" required autoComplete="off" />
             </label>
-            <label>
-              IMAP user
-              <input name="user" required placeholder="you@example.com" />
-            </label>
-            <label>
-              Password / App Password
-              <input name="password" type="password" required autoComplete="off" />
-            </label>
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+
+            <label className="checkbox-row">
               <input name="secure" type="checkbox" defaultChecked /> Use TLS (secure)
             </label>
-            <label>
-              From allowlist (comma or whitespace separated)
+
+            <label className="form-row">
+              <span>From allowlist</span>
               <input
+                className="field"
                 name="fromAllowlist"
                 defaultValue="instant-updates@mail.zillow.com, my-saved-home@mail.zillow.com"
               />
+              <span className="help">Comma or whitespace separated. Only messages from these senders are polled.</span>
             </label>
-            <button type="submit">Connect IMAP</button>
+
+            <button type="submit" className="button primary" style={{ marginTop: 6 }}>
+              Connect IMAP
+            </button>
           </form>
         </section>
 
-        <section>
-          <h3>Gmail (OAuth, advanced)</h3>
-          <p className="muted">
-            Sysadmin must own a Google Cloud OAuth client and register this redirect URI:{' '}
-            <code>{callbackBase}</code>
+        <section className="card">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
+            Gmail OAuth <span className="status" style={{ marginLeft: 6 }}>advanced</span>
+          </h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Requires owning a Google Cloud OAuth client with this redirect URI registered:
           </p>
           <p>
-            <Link href="/api/admin/mail/connect/gmail">→ Connect via Gmail OAuth</Link>
+            <code style={{ wordBreak: 'break-all' }}>{callbackBase}</code>
           </p>
+          <Link href="/api/admin/mail/connect/gmail" className="button">
+            Connect via Gmail OAuth
+          </Link>
         </section>
       </div>
     </div>
