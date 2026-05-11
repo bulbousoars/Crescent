@@ -3,12 +3,15 @@ import { randomBytes } from 'node:crypto';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import { getProvider } from '@/lib/mail/registry';
 import type { MailProviderId } from '@/lib/mail/provider';
+import { publicUrl } from '@/lib/forwarded-url';
 
 const STATE_COOKIE = 'crescent_oauth_state';
 
 function callbackUrl(request: NextRequest, providerId: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || new URL('/', request.url).toString().replace(/\/$/, '');
-  return `${base.replace(/\/$/, '')}/api/admin/mail/callback/${providerId}`;
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/api/admin/mail/callback/${providerId}`;
+  }
+  return publicUrl(request, `/api/admin/mail/callback/${providerId}`).toString();
 }
 
 export async function GET(

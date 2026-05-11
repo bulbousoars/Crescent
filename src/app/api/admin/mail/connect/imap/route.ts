@@ -5,6 +5,7 @@ import { ImapProvider } from '@/lib/mail/providers/imap';
 import { encryptJson, loadEncryptionKey } from '@/lib/mail/crypto';
 import { prisma } from '@/lib/prisma';
 import type { MailPasswordCredentials } from '@/lib/mail/provider';
+import { publicUrl } from '@/lib/forwarded-url';
 
 const formSchema = z.object({
   email: z.string().min(3),
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     const reason = e instanceof Error ? e.message : 'IMAP login failed';
     return NextResponse.redirect(
-      new URL(`/admin/mail?error=${encodeURIComponent('IMAP login: ' + reason)}`, request.url),
+      publicUrl(request, `/admin/mail?error=${encodeURIComponent('IMAP login: ' + reason)}`),
     );
   }
 
@@ -95,5 +96,5 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  return NextResponse.redirect(new URL('/admin/mail?connected=1', request.url));
+  return NextResponse.redirect(publicUrl(request, '/admin/mail?connected=1'));
 }

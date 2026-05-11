@@ -4,12 +4,15 @@ import { getProvider } from '@/lib/mail/registry';
 import { encryptJson, loadEncryptionKey } from '@/lib/mail/crypto';
 import { prisma } from '@/lib/prisma';
 import type { MailProviderId } from '@/lib/mail/provider';
+import { publicUrl } from '@/lib/forwarded-url';
 
 const STATE_COOKIE = 'crescent_oauth_state';
 
 function callbackUrl(request: NextRequest, providerId: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || new URL('/', request.url).toString().replace(/\/$/, '');
-  return `${base.replace(/\/$/, '')}/api/admin/mail/callback/${providerId}`;
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/api/admin/mail/callback/${providerId}`;
+  }
+  return publicUrl(request, `/api/admin/mail/callback/${providerId}`).toString();
 }
 
 export async function GET(
@@ -27,7 +30,7 @@ export async function GET(
   const url = new URL(request.url);
   const error = url.searchParams.get('error');
   if (error) {
-    return NextResponse.redirect(new URL(`/admin/mail?error=${encodeURIComponent(error)}`, request.url));
+    return NextResponse.redirect(publicUrl(request, `/admin/mail?error=${encodeURIComponent(error)}`));
   }
   const code = url.searchParams.get('code') || '';
   const state = url.searchParams.get('state') || '';
@@ -79,7 +82,7 @@ export async function GET(
     },
   });
 
-  const response = NextResponse.redirect(new URL('/admin/mail?connected=1', request.url));
+  const response = NextResponse.redirect(publicUrl(request, '/admin/mail?connected=1'));
   response.cookies.delete(STATE_COOKIE);
   return response;
 }

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_COOKIE } from '@/lib/admin-auth';
+import { publicUrl } from '@/lib/forwarded-url';
 
 function clearAndRedirect(request: NextRequest, next: string) {
-  const target = new URL(next, request.url);
-  const response = NextResponse.redirect(target, { status: 303 });
+  const response = NextResponse.redirect(publicUrl(request, next), { status: 303 });
   response.cookies.set(ADMIN_COOKIE, '', { path: '/', maxAge: 0 });
   return response;
 }
