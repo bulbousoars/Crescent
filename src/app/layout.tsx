@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { BarChart3, Database, Home, Settings, Workflow } from 'lucide-react';
+import { BarChart3, Cog, Database, Home, Settings, Workflow } from 'lucide-react';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import './globals.css';
 
@@ -13,6 +13,7 @@ const nav = [
   { href: '/data', label: 'Data', icon: Database },
   { href: '/assumptions', label: 'Assumptions', icon: Settings },
   { href: '/workflows', label: 'Workflows', icon: Workflow },
+  { href: '/settings', label: 'Settings', icon: Cog },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
