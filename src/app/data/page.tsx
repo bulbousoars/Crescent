@@ -93,7 +93,7 @@ export default async function DataPage({
         selectedAssumptionId={profile?.id}
       />
 
-      <div className="table-wrap data-table">
+      <div className="table-wrap listings-table">
         <table>
           <thead>
             <tr>

@@ -61,7 +61,7 @@ export default async function MailAdminPage({
       ) : null}
 
       <div className="card" style={{ marginTop: 14 }}>
-        <div className="table-wrap data-table">
+        <div className="table-wrap">
           <table>
             <thead>
               <tr>
