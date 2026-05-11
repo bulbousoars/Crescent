@@ -199,7 +199,10 @@ export class ImapProvider implements MailProvider {
         if (!inboxOk) throw new Error('IMAP: failed to remove Inbox label (archive)');
       } else {
         // Generic IMAP: keyword + read. Inbox skip is provider-specific; not all servers support it.
-        await client.messageFlagsAdd(uid, ['\\Seen', keyword], { uid: true });
+        const flagsOk = await client.messageFlagsAdd(uid, ['\\Seen', keyword], { uid: true });
+        if (!flagsOk) {
+          throw new Error(`IMAP: failed to mark read and apply keyword "${keyword}"`);
+        }
       }
       await client.logout();
     } catch (error) {

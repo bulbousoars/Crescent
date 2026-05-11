@@ -18,6 +18,8 @@ class MockImapFlow {
   public fetchedMessages: Map<number, FetchedMessage> = new Map();
   public uidValidity = 12345;
   public capabilities = new Map<string, unknown>();
+  /** When `false`, next `messageFlagsAdd` returns false (imapflow contract). Default: succeed. */
+  public messageFlagsAddResult: boolean | undefined = undefined;
   public flagsAdded: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
   public flagsRemoved: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
 
@@ -42,6 +44,7 @@ class MockImapFlow {
     const opt = options ? JSON.stringify(options) : '';
     this.calls.push(`flag:${uid}:${keywords.join(',')}:${opt}`);
     this.flagsAdded.push({ uid, keywords, options });
+    if (this.messageFlagsAddResult === false) return false;
     return true;
   }
   async messageFlagsRemove(range: unknown, keywords: string[], options?: Record<string, unknown>) {
@@ -189,6 +192,22 @@ describe('ImapProvider.markProcessed', () => {
     expect(mock.flagsRemoved).toEqual([]);
     expect(mock.calls).not.toContain('flag-remove:42:\\Inbox');
     expect(mock.calls).toContain('logout');
+  });
+
+  it('throws when generic IMAP STORE add returns false', async () => {
+    const mock = new MockImapFlow();
+    mock.messageFlagsAddResult = false;
+    const provider = new ImapProvider({
+      imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
+    });
+    await expect(
+      provider.markProcessed({
+        tokens: CREDS,
+        providerMsgId: '12345:42',
+        rules: { processedLabel: 'Crescent-Processed' },
+      }),
+    ).rejects.toThrow(/failed to mark read and apply keyword/);
+    expect(mock.calls).not.toContain('logout');
   });
 
   it('uses X-GM-LABELS for label + Inbox removal after \\Seen when server supports Gmail extensions', async () => {
