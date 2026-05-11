@@ -191,19 +191,19 @@ export class ImapProvider implements MailProvider {
         typeof client.capabilities?.has === 'function' && client.capabilities.has('X-GM-EXT-1');
 
       if (gmailLabels) {
-        // Apply label + archive first; some Gmail states drop \\Seen if set before X-GM-LABELS changes.
+        // Read → label → archive (Gmail: FLAGS \\Seen, then X-GM-LABELS, then drop Inbox).
+        const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+        if (!seenOk) throw new Error('IMAP: failed to mark message as read');
         const labelOk = await client.messageFlagsAdd(uid, [keyword], { uid: true, useLabels: true });
         if (!labelOk) throw new Error(`IMAP: failed to apply Gmail label "${keyword}"`);
         const inboxOk = await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
         if (!inboxOk) throw new Error('IMAP: failed to remove Inbox label (archive)');
+      } else {
+        // Generic IMAP: read then keyword (two STORE +FLAGS). Inbox archive is not portable here.
         const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
         if (!seenOk) throw new Error('IMAP: failed to mark message as read');
-      } else {
-        // Generic IMAP: keyword + read. Inbox skip is provider-specific; not all servers support it.
-        const flagsOk = await client.messageFlagsAdd(uid, ['\\Seen', keyword], { uid: true });
-        if (!flagsOk) {
-          throw new Error(`IMAP: failed to mark read and apply keyword "${keyword}"`);
-        }
+        const keywordOk = await client.messageFlagsAdd(uid, [keyword], { uid: true });
+        if (!keywordOk) throw new Error(`IMAP: failed to apply keyword "${keyword}"`);
       }
       await client.logout();
     } catch (error) {

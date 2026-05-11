@@ -5,6 +5,7 @@ import { encryptJson, loadEncryptionKey } from '@/lib/mail/crypto';
 import { prisma } from '@/lib/prisma';
 import type { MailProviderId } from '@/lib/mail/provider';
 import { publicUrl } from '@/lib/forwarded-url';
+import { mergeMailRules, type MailRulesJson } from '@/lib/mail/legacyRules';
 
 const STATE_COOKIE = 'crescent_oauth_state';
 
@@ -56,10 +57,16 @@ export async function GET(
   const { identity, tokens } = await provider.completeAuth({ code, redirectUri });
   const key = loadEncryptionKey();
   const encrypted = new Uint8Array(encryptJson(tokens, key));
-  const defaultRules = {
+  const defaultRules: MailRulesJson = {
     fromAllowlist: ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
-    processedLabel: 'Crescent/Processed',
+    processedLabel: 'Real-Estate',
   };
+  const existing = await prisma.mailAccount.findUnique({
+    where: { provider_email: { provider: providerId, email: identity.email } },
+    select: { rules: true },
+  });
+  const rulesToWrite = mergeMailRules(existing?.rules, defaultRules);
+
   await prisma.mailAccount.upsert({
     where: { provider_email: { provider: providerId, email: identity.email } },
     create: {
@@ -69,7 +76,7 @@ export async function GET(
       enabled: true,
       encryptedTokens: encrypted,
       cursor: '',
-      rules: defaultRules,
+      rules: rulesToWrite,
       lastError: '',
       consecutiveErrors: 0,
     },
@@ -77,6 +84,7 @@ export async function GET(
       displayName: identity.displayName || '',
       enabled: true,
       encryptedTokens: encrypted,
+      rules: rulesToWrite,
       lastError: '',
       consecutiveErrors: 0,
     },

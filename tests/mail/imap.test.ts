@@ -18,8 +18,9 @@ class MockImapFlow {
   public fetchedMessages: Map<number, FetchedMessage> = new Map();
   public uidValidity = 12345;
   public capabilities = new Map<string, unknown>();
-  /** When `false`, next `messageFlagsAdd` returns false (imapflow contract). Default: succeed. */
-  public messageFlagsAddResult: boolean | undefined = undefined;
+  /** If set to N (1-based), the Nth `messageFlagsAdd` call returns false. */
+  public messageFlagsAddFailAttempt: number | null = null;
+  private messageFlagsAddCallCount = 0;
   public flagsAdded: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
   public flagsRemoved: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
 
@@ -42,9 +43,15 @@ class MockImapFlow {
   async messageFlagsAdd(range: unknown, keywords: string[], options?: Record<string, unknown>) {
     const uid = typeof range === 'number' ? range : 0;
     const opt = options ? JSON.stringify(options) : '';
+    this.messageFlagsAddCallCount += 1;
     this.calls.push(`flag:${uid}:${keywords.join(',')}:${opt}`);
     this.flagsAdded.push({ uid, keywords, options });
-    if (this.messageFlagsAddResult === false) return false;
+    if (
+      this.messageFlagsAddFailAttempt !== null &&
+      this.messageFlagsAddFailAttempt === this.messageFlagsAddCallCount
+    ) {
+      return false;
+    }
     return true;
   }
   async messageFlagsRemove(range: unknown, keywords: string[], options?: Record<string, unknown>) {
@@ -186,17 +193,21 @@ describe('ImapProvider.markProcessed', () => {
       rules: { processedLabel: 'Crescent-Processed' },
     });
     expect(mock.flagsAdded).toEqual([
-      { uid: 42, keywords: ['\\Seen', 'Crescent-Processed'], options: { uid: true } },
+      { uid: 42, keywords: ['\\Seen'], options: { uid: true } },
+      { uid: 42, keywords: ['Crescent-Processed'], options: { uid: true } },
     ]);
-    expect(mock.calls).toContain('flag:42:\\Seen,Crescent-Processed:{"uid":true}');
+    expect(mock.calls.filter((c) => c.startsWith('flag:'))).toEqual([
+      'flag:42:\\Seen:{"uid":true}',
+      'flag:42:Crescent-Processed:{"uid":true}',
+    ]);
     expect(mock.flagsRemoved).toEqual([]);
     expect(mock.calls).not.toContain('flag-remove:42:\\Inbox');
     expect(mock.calls).toContain('logout');
   });
 
-  it('throws when generic IMAP STORE add returns false', async () => {
+  it('throws when generic IMAP cannot mark read (first STORE returns false)', async () => {
     const mock = new MockImapFlow();
-    mock.messageFlagsAddResult = false;
+    mock.messageFlagsAddFailAttempt = 1;
     const provider = new ImapProvider({
       imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
     });
@@ -206,11 +217,27 @@ describe('ImapProvider.markProcessed', () => {
         providerMsgId: '12345:42',
         rules: { processedLabel: 'Crescent-Processed' },
       }),
-    ).rejects.toThrow(/failed to mark read and apply keyword/);
+    ).rejects.toThrow(/failed to mark message as read/);
     expect(mock.calls).not.toContain('logout');
   });
 
-  it('uses X-GM-LABELS for label + Inbox removal after \\Seen when server supports Gmail extensions', async () => {
+  it('throws when generic IMAP read succeeds but keyword STORE returns false', async () => {
+    const mock = new MockImapFlow();
+    mock.messageFlagsAddFailAttempt = 2;
+    const provider = new ImapProvider({
+      imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
+    });
+    await expect(
+      provider.markProcessed({
+        tokens: CREDS,
+        providerMsgId: '12345:42',
+        rules: { processedLabel: 'Crescent-Processed' },
+      }),
+    ).rejects.toThrow(/failed to apply keyword/);
+    expect(mock.calls).not.toContain('logout');
+  });
+
+  it('uses Gmail extensions in order: \\Seen, label (X-GM-LABELS), remove Inbox', async () => {
     const mock = new MockImapFlow();
     mock.capabilities.set('X-GM-EXT-1', true);
     const provider = new ImapProvider({
@@ -222,13 +249,13 @@ describe('ImapProvider.markProcessed', () => {
       rules: { processedLabel: 'Real-Estate' },
     });
     expect(mock.flagsAdded).toEqual([
-      { uid: 42, keywords: ['Real-Estate'], options: { uid: true, useLabels: true } },
       { uid: 42, keywords: ['\\Seen'], options: { uid: true } },
+      { uid: 42, keywords: ['Real-Estate'], options: { uid: true, useLabels: true } },
     ]);
     expect(mock.flagsRemoved).toEqual([{ uid: 42, keywords: ['\\Inbox'], options: { uid: true, useLabels: true } }]);
     expect(mock.calls.filter((c) => c.startsWith('flag:'))).toEqual([
-      'flag:42:Real-Estate:{"uid":true,"useLabels":true}',
       'flag:42:\\Seen:{"uid":true}',
+      'flag:42:Real-Estate:{"uid":true,"useLabels":true}',
     ]);
     expect(mock.calls).toContain('flag-remove:42:\\Inbox');
     expect(mock.calls).toContain('logout');

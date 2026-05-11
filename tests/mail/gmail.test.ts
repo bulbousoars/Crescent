@@ -142,7 +142,7 @@ describe('GmailProvider.listNew', () => {
     const result = await provider.listNew({
       tokens: TOKENS,
       cursor: '',
-      rules: { fromAllowlist: ['instant-updates@mail.zillow.com'], processedLabel: 'Crescent/Processed' },
+      rules: { fromAllowlist: ['instant-updates@mail.zillow.com'], processedLabel: 'Real-Estate' },
     });
     expect(result.messages.length).toBe(1);
     const m = result.messages[0];
@@ -154,7 +154,7 @@ describe('GmailProvider.listNew', () => {
     expect(result.nextCursor).toBe('last:m1');
     const listUrl = calls[0].url;
     expect(decodeURIComponent(listUrl)).toContain('from:instant-updates@mail.zillow.com');
-    expect(decodeURIComponent(listUrl)).toContain('-label:Crescent/Processed');
+    expect(decodeURIComponent(listUrl)).toContain('-label:Real-Estate');
   });
 
   it('refreshes tokens automatically when expired', async () => {
@@ -190,8 +190,9 @@ describe('GmailProvider.listNew', () => {
 });
 
 describe('GmailProvider.markProcessed', () => {
-  it('looks up label, creates if missing, then modifies the message', async () => {
+  it('looks up label, creates if missing, then read → label → archive (three modifies)', async () => {
     const calls: string[] = [];
+    const modifyBodies: unknown[] = [];
     const { fetcher } = makeFetcher([
       {
         match: (u, init) => u.endsWith('/labels') && (!init?.method || init.method === 'GET'),
@@ -204,16 +205,14 @@ describe('GmailProvider.markProcessed', () => {
         match: (u, init) => u.endsWith('/labels') && init?.method === 'POST',
         respond: () => {
           calls.push('create-label');
-          return { ok: true, status: 200, body: { id: 'Label_42', name: 'Crescent/Processed' } };
+          return { ok: true, status: 200, body: { id: 'Label_42', name: 'Real-Estate' } };
         },
       },
       {
         match: (u, init) => u.endsWith('/m1/modify'),
         respond: (_u, init) => {
           calls.push('modify-m1');
-          const parsed = init?.body ? JSON.parse(String(init.body)) : {};
-          expect(parsed.removeLabelIds).toEqual(['UNREAD', 'INBOX']);
-          expect(parsed.addLabelIds).toEqual(['Label_42']);
+          modifyBodies.push(init?.body ? JSON.parse(String(init.body)) : {});
           return { ok: true, status: 200, body: {} };
         },
       },
@@ -222,8 +221,13 @@ describe('GmailProvider.markProcessed', () => {
     await provider.markProcessed({
       tokens: TOKENS,
       providerMsgId: 'm1',
-      rules: { processedLabel: 'Crescent/Processed' },
+      rules: { processedLabel: 'Real-Estate' },
     });
-    expect(calls).toEqual(['list-labels', 'create-label', 'modify-m1']);
+    expect(calls).toEqual(['list-labels', 'create-label', 'modify-m1', 'modify-m1', 'modify-m1']);
+    expect(modifyBodies).toEqual([
+      { removeLabelIds: ['UNREAD'] },
+      { addLabelIds: ['Label_42'] },
+      { removeLabelIds: ['INBOX'] },
+    ]);
   });
 });

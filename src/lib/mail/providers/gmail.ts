@@ -24,7 +24,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
 ];
 
-const DEFAULT_PROCESSED_LABEL = 'Crescent/Processed';
+/** Default Gmail user label for messages Crescent has finished with (matches IMAP keyword default). */
+const DEFAULT_PROCESSED_LABEL = 'Real-Estate';
 
 export interface GmailProviderConfig {
   clientId: string;
@@ -266,15 +267,23 @@ export class GmailProvider implements MailProvider {
     const tokens: MailAuthTokens = args.tokens;
     const labelName = args.rules.processedLabel || DEFAULT_PROCESSED_LABEL;
     const labelId = await this.ensureLabel(labelName, tokens);
-    const url = `${GMAIL_BASE}/messages/${args.providerMsgId}/modify`;
-    const body = JSON.stringify({
-      addLabelIds: [labelId],
-      removeLabelIds: ['UNREAD', 'INBOX'],
-    });
+    const messageId = args.providerMsgId;
+    // Read → label → archive (sequential modifies; order is explicit for operators and UI).
+    await this.gmailMessageModify(tokens, messageId, { removeLabelIds: ['UNREAD'] });
+    await this.gmailMessageModify(tokens, messageId, { addLabelIds: [labelId] });
+    await this.gmailMessageModify(tokens, messageId, { removeLabelIds: ['INBOX'] });
+  }
+
+  private async gmailMessageModify(
+    tokens: MailAuthTokens,
+    messageId: string,
+    body: { addLabelIds?: string[]; removeLabelIds?: string[] },
+  ): Promise<void> {
+    const url = `${GMAIL_BASE}/messages/${messageId}/modify`;
     const response = await this.fetcher(url, {
       method: 'POST',
       headers: this.authHeaders(tokens, 'application/json'),
-      body,
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       throw new Error(`Gmail markProcessed failed: ${response.status} ${await response.text()}`);
