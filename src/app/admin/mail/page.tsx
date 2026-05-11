@@ -116,51 +116,53 @@ export default async function MailAdminPage({
             . Be sure IMAP is enabled at Gmail Settings → Forwarding and POP/IMAP.
           </p>
 
-          <form method="POST" action="/api/admin/mail/connect/imap" className="form-grid">
-            <label className="form-row">
+          <form method="POST" action="/api/admin/mail/connect/imap" className="admin-form">
+            <label className="admin-field">
               <span>Email</span>
               <input className="field" name="email" type="email" required placeholder="you@example.com" />
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-              <label className="form-row">
+            <div className="field-row">
+              <label className="admin-field">
                 <span>IMAP host</span>
                 <input className="field" name="host" required defaultValue="imap.gmail.com" />
               </label>
-              <label className="form-row">
+              <label className="admin-field">
                 <span>Port</span>
                 <input className="field" name="port" type="number" required defaultValue={993} />
               </label>
             </div>
 
-            <label className="form-row">
+            <label className="admin-field">
               <span>IMAP user</span>
               <input className="field" name="user" required placeholder="usually your full email" />
             </label>
 
-            <label className="form-row">
+            <label className="admin-field">
               <span>
-                <KeyRound size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                <KeyRound size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
                 Password / App Password
               </span>
               <input className="field" name="password" type="password" required autoComplete="off" />
             </label>
 
             <label className="checkbox-row">
-              <input name="secure" type="checkbox" defaultChecked /> Use TLS (secure)
+              <input name="secure" type="checkbox" defaultChecked />
+              <span>Use TLS (secure)</span>
             </label>
 
-            <label className="form-row">
+            <label className="admin-field">
               <span>From allowlist</span>
-              <input
+              <textarea
                 className="field"
                 name="fromAllowlist"
-                defaultValue="instant-updates@mail.zillow.com, my-saved-home@mail.zillow.com"
+                rows={4}
+                defaultValue={'instant-updates@mail.zillow.com\nmy-saved-home@mail.zillow.com'}
               />
-              <span className="help">Comma or whitespace separated. Only messages from these senders are polled.</span>
+              <span className="help">One email address per line. Only messages from these senders are polled.</span>
             </label>
 
-            <button type="submit" className="button primary" style={{ marginTop: 6 }}>
+            <button type="submit" className="button primary" style={{ marginTop: 4 }}>
               Connect IMAP
             </button>
           </form>

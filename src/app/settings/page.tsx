@@ -78,7 +78,7 @@ function AuthStateBlock({ state, idpLogoutUrl }: { state: AuthState; idpLogoutUr
   }
   if (state.kind === 'cookie') {
     return (
-      <div className="form-grid">
+      <div className="admin-form">
         <p style={{ margin: 0 }}>
           <span className="tag good" style={{ marginRight: 8 }}>signed in</span>
           via the admin token cookie on this device.
@@ -93,7 +93,7 @@ function AuthStateBlock({ state, idpLogoutUrl }: { state: AuthState; idpLogoutUr
   }
   if (state.kind === 'forward-auth') {
     return (
-      <div className="form-grid">
+      <div className="admin-form">
         <p style={{ margin: 0 }}>
           <span className="tag good" style={{ marginRight: 8 }}>signed in</span>
           via your identity provider as <code>{state.value}</code>.
@@ -111,16 +111,16 @@ function AuthStateBlock({ state, idpLogoutUrl }: { state: AuthState; idpLogoutUr
     );
   }
   return (
-    <div className="form-grid">
+    <div className="admin-form">
       <p style={{ margin: 0 }}>
         Not signed in. Paste the <code>ADMIN_API_TOKEN</code> configured on the server to enable
         admin actions on this device.
       </p>
-      <form method="GET" action="/api/admin/login" className="form-grid" style={{ maxWidth: '20rem' }}>
+      <form method="GET" action="/api/admin/login" className="admin-form">
         <input type="hidden" name="next" value="/settings" />
-        <label className="form-row">
+        <label className="admin-field">
           <span>
-            <KeyRound size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            <KeyRound size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
             Admin token
           </span>
           <input className="field" type="password" name="token" autoComplete="off" required autoFocus />
