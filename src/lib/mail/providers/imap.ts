@@ -19,11 +19,6 @@ function processedKeywordFromRules(rules: { processedLabel?: string }): string {
   return raw || DEFAULT_PROCESSED_KEYWORD;
 }
 
-function isGmailHost(host: string): boolean {
-  const normalized = (host || '').toLowerCase();
-  return normalized.includes('gmail.com') || normalized.includes('googlemail.com');
-}
-
 function parseCursor(cursor: string): { uidValidity: number; lastUid: number } {
   if (!cursor) return { uidValidity: 0, lastUid: 0 };
   const m = cursor.match(/^uid:(\d+):(\d+)$/);
@@ -190,14 +185,21 @@ export class ImapProvider implements MailProvider {
     try {
       await client.connect();
       await client.mailboxOpen('INBOX', { readOnly: false });
-      await client.messageFlagsAdd(uid, ['\\Seen', keyword], { uid: true });
-      if (isGmailHost(args.tokens.host)) {
-        // Gmail IMAP labels use keyword semantics; remove Inbox so processed mail is archived.
-        try {
-          await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
-        } catch {
-          // Best-effort on providers that do not support label semantics.
-        }
+
+      // Gmail / Google Workspace: X-GM-LABELS for user labels + Inbox; standard FLAGS for \Seen.
+      const gmailLabels =
+        typeof client.capabilities?.has === 'function' && client.capabilities.has('X-GM-EXT-1');
+
+      if (gmailLabels) {
+        const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+        if (!seenOk) throw new Error('IMAP: failed to mark message as read');
+        const labelOk = await client.messageFlagsAdd(uid, [keyword], { uid: true, useLabels: true });
+        if (!labelOk) throw new Error(`IMAP: failed to apply Gmail label "${keyword}"`);
+        const inboxOk = await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
+        if (!inboxOk) throw new Error('IMAP: failed to remove Inbox label (archive)');
+      } else {
+        // Generic IMAP: keyword + read. Inbox skip is provider-specific; not all servers support it.
+        await client.messageFlagsAdd(uid, ['\\Seen', keyword], { uid: true });
       }
       await client.logout();
     } catch (error) {
