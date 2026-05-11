@@ -13,7 +13,7 @@ export default async function AssumptionsPage() {
       <div className="page-head">
         <div>
           <div className="eyebrow">Underwriting</div>
-          <h1>Assumptions</h1>
+          <h1>Assumption profiles</h1>
         </div>
       </div>
       <section className="card">

@@ -9,10 +9,10 @@ export const metadata: Metadata = {
 };
 
 const nav = [
-  { href: '/', label: 'Listings', icon: Home },
-  { href: '/data', label: 'Data', icon: Database },
-  { href: '/assumptions', label: 'Assumptions', icon: Settings },
-  { href: '/workflows', label: 'Workflows', icon: Workflow },
+  { href: '/', label: 'Overview', icon: Home },
+  { href: '/data', label: 'Listing Data', icon: Database },
+  { href: '/assumptions', label: 'Underwriting', icon: Settings },
+  { href: '/workflows', label: 'Ingestion Logs', icon: Workflow },
   { href: '/settings', label: 'Settings', icon: Cog },
 ];
 

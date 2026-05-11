@@ -267,7 +267,10 @@ export class GmailProvider implements MailProvider {
     const labelName = args.rules.processedLabel || DEFAULT_PROCESSED_LABEL;
     const labelId = await this.ensureLabel(labelName, tokens);
     const url = `${GMAIL_BASE}/messages/${args.providerMsgId}/modify`;
-    const body = JSON.stringify({ addLabelIds: [labelId] });
+    const body = JSON.stringify({
+      addLabelIds: [labelId],
+      removeLabelIds: ['UNREAD', 'INBOX'],
+    });
     const response = await this.fetcher(url, {
       method: 'POST',
       headers: this.authHeaders(tokens, 'application/json'),

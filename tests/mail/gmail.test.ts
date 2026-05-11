@@ -208,9 +208,12 @@ describe('GmailProvider.markProcessed', () => {
         },
       },
       {
-        match: (u) => u.endsWith('/m1/modify'),
-        respond: () => {
+        match: (u, init) => u.endsWith('/m1/modify'),
+        respond: (_u, init) => {
           calls.push('modify-m1');
+          const parsed = init?.body ? JSON.parse(String(init.body)) : {};
+          expect(parsed.removeLabelIds).toEqual(['UNREAD', 'INBOX']);
+          expect(parsed.addLabelIds).toEqual(['Label_42']);
           return { ok: true, status: 200, body: {} };
         },
       },

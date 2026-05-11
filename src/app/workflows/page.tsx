@@ -13,8 +13,8 @@ export default async function WorkflowsPage() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Automation</div>
-          <h1>Workflow Runs</h1>
+          <div className="eyebrow">Ingestion Logs</div>
+          <h1>Run history</h1>
         </div>
       </div>
       <div className="table-wrap">

@@ -222,13 +222,13 @@ describe('ImapProvider.markProcessed', () => {
       rules: { processedLabel: 'Real-Estate' },
     });
     expect(mock.flagsAdded).toEqual([
-      { uid: 42, keywords: ['\\Seen'], options: { uid: true } },
       { uid: 42, keywords: ['Real-Estate'], options: { uid: true, useLabels: true } },
+      { uid: 42, keywords: ['\\Seen'], options: { uid: true } },
     ]);
     expect(mock.flagsRemoved).toEqual([{ uid: 42, keywords: ['\\Inbox'], options: { uid: true, useLabels: true } }]);
     expect(mock.calls.filter((c) => c.startsWith('flag:'))).toEqual([
-      'flag:42:\\Seen:{"uid":true}',
       'flag:42:Real-Estate:{"uid":true,"useLabels":true}',
+      'flag:42:\\Seen:{"uid":true}',
     ]);
     expect(mock.calls).toContain('flag-remove:42:\\Inbox');
     expect(mock.calls).toContain('logout');

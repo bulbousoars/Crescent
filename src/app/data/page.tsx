@@ -74,7 +74,7 @@ export default async function DataPage({
     <div className="workspace">
       <div className="page-head workspace-head">
         <div>
-          <div className="eyebrow">Data</div>
+          <div className="eyebrow">Listing Data</div>
           <h1>All Listings</h1>
           <p className="subhead">Flat table of every ingested listing. Filter, sort, and edit values in place.</p>
         </div>
