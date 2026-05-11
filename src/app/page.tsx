@@ -19,6 +19,7 @@ const tabs = [
 type SearchParams = RawListingFilters & {
   tab?: string;
   assumptionId?: string;
+  focusId?: string;
 };
 
 function withParams(params: SearchParams, updates: Record<string, string | undefined>) {
@@ -49,8 +50,9 @@ export default async function ListingsPage({
   const activeTab = tabs.some((tab) => tab.key === params.tab) ? params.tab ?? 'overview' : 'overview';
   const filters = normalizeListingFilters(params);
   const where = buildListingWhere(filters) as Prisma.ListingWhereInput;
+  const focusId = typeof params.focusId === 'string' && params.focusId.trim() ? params.focusId.trim() : '';
 
-  const [listings, allProperties, counts, total, assumptions, stateRows, cityRows] = await Promise.all([
+  const [listings, focusListing, allProperties, counts, total, assumptions, stateRows, cityRows] = await Promise.all([
     prisma.listing.findMany({
       where,
       include: {
@@ -60,6 +62,15 @@ export default async function ListingsPage({
       orderBy: { ingestedAt: 'desc' },
       take: 300,
     }),
+    focusId
+      ? prisma.listing.findUnique({
+          where: { id: focusId },
+          include: {
+            pipeline: true,
+            analysis: { orderBy: { computedAt: 'desc' }, take: 1 },
+          },
+        })
+      : Promise.resolve(null),
     prisma.listing.findMany({
       select: { id: true, address: true, city: true, state: true, zip: true },
       orderBy: [{ address: 'asc' }],
@@ -86,9 +97,9 @@ export default async function ListingsPage({
     assumptions.length > 0 ? assumptions : [fallbackProfile],
     params.assumptionId,
   );
-  const selected = filters.listingId
-    ? listings.find((listing) => listing.id === filters.listingId) ?? listings[0]
-    : listings[0];
+  const selected =
+    focusListing ??
+    (filters.listingId ? listings.find((listing) => listing.id === filters.listingId) ?? listings[0] : listings[0]);
   const selectedSnapshot = selected?.analysis[0];
   const selectedAnalysis = selected && profile
     ? calculateListingAnalysis({
@@ -164,18 +175,17 @@ export default async function ListingsPage({
                     <h2>{selected.address}</h2>
                     <p className="muted">{selected.city}, {selected.state} {selected.zip}</p>
                   </div>
-                  <a className="icon-link" href={selected.listingUrl} target="_blank" rel="noreferrer" aria-label="Open Zillow listing">
-                    <ArrowUpRight size={18} />
+                  <a className="button" href={selected.listingUrl} target="_blank" rel="noreferrer">
+                    Open in Zillow
+                    <ArrowUpRight size={16} />
                   </a>
                 </div>
-                <div className="metric-row">
+                <div className="overview-metrics">
                   <div><span>Price</span><strong>{currency(selected.price)}</strong></div>
                   <div><span>Specs</span><strong>{selected.beds} bd / {selected.baths} ba</strong></div>
                   <div><span>Size</span><strong>{selected.sqft.toLocaleString()} sqft</strong></div>
                   <div><span>HOA</span><strong>{currency(selected.hoaMonthly)}/mo</strong></div>
                   <div><span>Date added</span><strong>{compactDate(selected.ingestedAt)}</strong></div>
-                </div>
-                <div className="metric-row highlight">
                   <div><span>Monthly CF</span><strong>{selectedAnalysis ? currency(selectedAnalysis.monthlyCf) : 'Pending'}</strong></div>
                   <div><span>Cap rate</span><strong>{selectedAnalysis ? percent(selectedAnalysis.capRate) : 'Pending'}</strong></div>
                   <div><span>Cash on cash</span><strong>{selectedAnalysis ? percent(selectedAnalysis.cashOnCash) : 'Pending'}</strong></div>
@@ -194,7 +204,11 @@ export default async function ListingsPage({
             </div>
             <div className="queue-list">
               {listings.slice(0, 12).map((listing) => (
-                <a key={listing.id} className={selected?.id === listing.id ? 'queue-item active' : 'queue-item'} href={withParams(params, { listingId: listing.id, tab: 'overview' })}>
+                <a
+                  key={listing.id}
+                  className={selected?.id === listing.id ? 'queue-item active' : 'queue-item'}
+                  href={withParams(params, { focusId: listing.id, listingId: undefined, tab: 'overview' })}
+                >
                   <strong>{listing.address}</strong>
                   <span>{listing.city}, {listing.state} · {currency(listing.price)}</span>
                   <span className="muted">Added {compactDate(listing.ingestedAt)}</span>
