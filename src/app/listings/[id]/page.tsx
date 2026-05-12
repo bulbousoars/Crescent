@@ -65,28 +65,17 @@ export default async function ListingDetailPage({
         appreciationRate: defaultAssumptions.appreciationRate,
       });
 
-  const savedLive =
-    analysis && assumptionRow
-      ? calculateListingAnalysis({
-          listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
-          assumptions: toAnalysisAssumptions(assumptionRow),
-          rent: {
-            hudFmrSelected: analysis.hudFmrSelected,
-            hudMetro: analysis.hudMetro,
-            rentcastEst: analysis.rentcastEst,
-          },
-        })
-      : analysis && !assumptionRow
-        ? calculateListingAnalysis({
-            listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
-            assumptions: initialAssumptions,
-            rent: {
-              hudFmrSelected: analysis.hudFmrSelected,
-              hudMetro: analysis.hudMetro,
-              rentcastEst: analysis.rentcastEst,
-            },
-          })
-        : null;
+  const savedLive = analysis
+    ? calculateListingAnalysis({
+        listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
+        assumptions: initialAssumptions,
+        rent: {
+          hudFmrSelected: analysis.hudFmrSelected,
+          hudMetro: analysis.hudMetro,
+          rentcastEst: analysis.rentcastEst,
+        },
+      })
+    : null;
 
   const marketDto: MarketContextDto = listing.marketContext
     ? {
@@ -161,6 +150,9 @@ export default async function ListingDetailPage({
                 <div><span>Cash on cash</span><strong>{percent(analysis.cashOnCash)}</strong></div>
                 <div><span>Cash required</span><strong>{currency(analysis.cashRequired)}</strong></div>
                 <div><span>Tag</span><strong>{analysis.tag}</strong></div>
+                {savedLive?.dscr != null ? (
+                  <div><span>DSCR (NOI / P&amp;I)</span><strong>{savedLive.dscr.toFixed(2)}×</strong></div>
+                ) : null}
               </div>
             ) : (
               <p className="muted">No analysis snapshot has been computed yet.</p>

@@ -96,3 +96,4 @@ Crescent already exposes acquisition **Insights** dashboards. Use these **report
 | Date | Change |
 |------|--------|
 | 2026-05-12 | Initial buy-side spec from product conversation (BiggerPockets / Propertybase selective borrow). |
+| 2026-05-12 | First implementation pass in Crescent: what-if lab, market context model, partners UI/API, capital-by-stage insights. |

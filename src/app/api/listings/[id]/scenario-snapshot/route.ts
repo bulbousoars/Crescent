@@ -4,8 +4,8 @@ import { prisma } from '@/lib/prisma';
 
 const snapshotSchema = z.object({
   label: z.string().max(200).optional(),
-  inputs: z.record(z.unknown()),
-  outputs: z.record(z.unknown()),
+  inputs: z.record(z.any()),
+  outputs: z.record(z.any()),
 });
 
 /** Persists a one-off what-if run to the listing timeline (optional); does not change ListingAnalysis. */

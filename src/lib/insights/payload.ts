@@ -37,6 +37,8 @@ export type InsightsPayload = {
     status: PipelineStatus;
     count: number;
     avgPrice: number;
+    /** Sum of list prices in stage — capital in play (buy-side). */
+    totalListPrice: number;
     medianCap: number;
     medianCapPct: number;
   }>;
@@ -157,6 +159,7 @@ export async function buildInsightsPayload(): Promise<InsightsPayload> {
     status,
     count: v.prices.length,
     avgPrice: Math.round(mean(v.prices)),
+    totalListPrice: v.prices.reduce((a, b) => a + b, 0),
     medianCap: median(v.caps),
     medianCapPct: median(v.caps) * 100,
   }));

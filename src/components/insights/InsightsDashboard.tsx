@@ -60,6 +60,7 @@ export function InsightsDashboard({ data }: { data: InsightsPayload }) {
       <nav className="insights-toc" aria-label="Dashboard sections">
         <a href="#rent-conviction">Rent</a>
         <a href="#funnel">Funnel</a>
+        <a href="#capital">Capital</a>
         <a href="#market-heat">Markets</a>
         <a href="#price-path">Prices</a>
         <a href="#stress">Stress</a>
@@ -111,6 +112,37 @@ export function InsightsDashboard({ data }: { data: InsightsPayload }) {
               <Bar yAxisId="right" dataKey="medianCapPct" name="Median cap %" fill="#c4896b" />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="insights-section" id="capital">
+        <h2>2b · Capital in play by stage</h2>
+        <p className="muted">
+          Sum of <strong>list prices</strong> in each pipeline bucket — a buy-side view of exposure (not agent lead value).
+        </p>
+        <div className="insights-table-wrap">
+          <table className="insights-table">
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Listings</th>
+                <th>Total list price</th>
+                <th>Avg price</th>
+                <th>Median cap %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.funnel.map((r) => (
+                <tr key={r.status}>
+                  <td>{r.status.replaceAll('_', ' ')}</td>
+                  <td>{r.count}</td>
+                  <td>${r.totalListPrice.toLocaleString()}</td>
+                  <td>${r.avgPrice.toLocaleString()}</td>
+                  <td>{r.medianCapPct.toFixed(2)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 

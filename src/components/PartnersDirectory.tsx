@@ -264,7 +264,11 @@ export function PartnersDirectory() {
                 </td>
                 <td>
                   {p.linkedListing ? (
-                    <Link href={`/listings/${p.linkedListing.id}`}>{p.linkedListing.address.slice(0, 40)}…</Link>
+                    <Link href={`/listings/${p.linkedListing.id}`}>
+                      {p.linkedListing.address.length > 40
+                        ? `${p.linkedListing.address.slice(0, 40)}…`
+                        : p.linkedListing.address}
+                    </Link>
                   ) : (
                     '—'
                   )}
