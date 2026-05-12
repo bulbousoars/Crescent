@@ -190,7 +190,7 @@ describe('GmailProvider.listNew', () => {
 });
 
 describe('GmailProvider.markProcessed', () => {
-  it('looks up label, creates if missing, then read → label → archive (three modifies)', async () => {
+  it('looks up label, creates if missing, then one modify: read + label + archive', async () => {
     const calls: string[] = [];
     const modifyBodies: unknown[] = [];
     const { fetcher } = makeFetcher([
@@ -223,11 +223,7 @@ describe('GmailProvider.markProcessed', () => {
       providerMsgId: 'm1',
       rules: { processedLabel: 'Real-Estate' },
     });
-    expect(calls).toEqual(['list-labels', 'create-label', 'modify-m1', 'modify-m1', 'modify-m1']);
-    expect(modifyBodies).toEqual([
-      { removeLabelIds: ['UNREAD'] },
-      { addLabelIds: ['Label_42'] },
-      { removeLabelIds: ['INBOX'] },
-    ]);
+    expect(calls).toEqual(['list-labels', 'create-label', 'modify-m1']);
+    expect(modifyBodies).toEqual([{ addLabelIds: ['Label_42'], removeLabelIds: ['UNREAD', 'INBOX'] }]);
   });
 });

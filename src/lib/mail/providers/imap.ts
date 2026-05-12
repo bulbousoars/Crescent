@@ -191,13 +191,16 @@ export class ImapProvider implements MailProvider {
         typeof client.capabilities?.has === 'function' && client.capabilities.has('X-GM-EXT-1');
 
       if (gmailLabels) {
-        // Read → label → archive (Gmail: FLAGS \\Seen, then X-GM-LABELS, then drop Inbox).
+        // Gmail: FLAGS \\Seen, then X-GM-LABELS user label, then drop \\Inbox (sometimes Gmail
+        // re-applies Inbox when adding a label; a second -X-GM-LABELS \\Inbox STORE clears it).
         const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
         if (!seenOk) throw new Error('IMAP: failed to mark message as read');
         const labelOk = await client.messageFlagsAdd(uid, [keyword], { uid: true, useLabels: true });
         if (!labelOk) throw new Error(`IMAP: failed to apply Gmail label "${keyword}"`);
         const inboxOk = await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
         if (!inboxOk) throw new Error('IMAP: failed to remove Inbox label (archive)');
+        const inboxOk2 = await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
+        if (!inboxOk2) throw new Error('IMAP: failed second Inbox removal (archive)');
       } else {
         // Generic IMAP: read then keyword (two STORE +FLAGS). Inbox archive is not portable here.
         const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });

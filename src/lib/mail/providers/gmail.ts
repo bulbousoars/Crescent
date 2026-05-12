@@ -268,10 +268,12 @@ export class GmailProvider implements MailProvider {
     const labelName = args.rules.processedLabel || DEFAULT_PROCESSED_LABEL;
     const labelId = await this.ensureLabel(labelName, tokens);
     const messageId = args.providerMsgId;
-    // Read → label → archive (sequential modifies; order is explicit for operators and UI).
-    await this.gmailMessageModify(tokens, messageId, { removeLabelIds: ['UNREAD'] });
-    await this.gmailMessageModify(tokens, messageId, { addLabelIds: [labelId] });
-    await this.gmailMessageModify(tokens, messageId, { removeLabelIds: ['INBOX'] });
+    // One modify: mark read, apply processed label, and archive (remove INBOX). Gmail can leave
+    // messages in Inbox if INBOX is removed in a separate request after addLabelIds in some cases.
+    await this.gmailMessageModify(tokens, messageId, {
+      addLabelIds: [labelId],
+      removeLabelIds: ['UNREAD', 'INBOX'],
+    });
   }
 
   private async gmailMessageModify(
