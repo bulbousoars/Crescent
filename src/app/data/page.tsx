@@ -123,7 +123,7 @@ export default async function DataPage({
               <th>Baths</th>
               <th>Sq ft</th>
               <th>HOA</th>
-              <th>Monthly CF</th>
+              <th title="Monthly cash flow">Monthly CF</th>
               <th>Cap</th>
               <th>Zillow</th>
               <th>Actions</th>

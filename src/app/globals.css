@@ -750,9 +750,11 @@ tr:last-child td {
   white-space: nowrap;
 }
 
+/* Theme-aware chip: body text color on tinted fill so dark/dawn aren’t “light on light”. */
 .status {
-  background: #e9eee9;
-  color: var(--accent-strong);
+  background: color-mix(in oklab, var(--accent-soft) 94%, var(--accent) 6%);
+  border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--line));
+  color: var(--ink);
 }
 
 .tag.good {
@@ -876,7 +878,8 @@ textarea.field {
 
 .zillow-link {
   align-items: center;
-  background: var(--accent-strong);
+  background: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--accent-strong) 42%, var(--line));
   border-radius: 6px;
   color: #fff;
   display: inline-flex;
@@ -894,7 +897,8 @@ textarea.field {
 }
 
 .zillow-link:hover {
-  background: var(--accent);
+  background: color-mix(in oklab, var(--accent) 72%, #0a0a12);
+  border-color: color-mix(in oklab, var(--accent-strong) 55%, var(--line));
   color: #fff;
 }
 
