@@ -108,4 +108,69 @@ describe('calculateListingAnalysis', () => {
     expect(result.rentUsed).toBe(1650);
     expect(result.rentSource).toBe('Scenario rent (stress test)');
   });
+
+  it('applies property tax and insurance overrides', () => {
+    const base = calculateListingAnalysis({
+      listing: { price: 200000, state: 'PA', hoaMonthly: 0 },
+      assumptions: {
+        downPaymentPct: 0.2,
+        interestRate: 0.07,
+        loanTermYears: 30,
+        vacancyPct: 0.08,
+        maintenancePct: 0.08,
+        propertyMgmtPct: 0.1,
+        insuranceRate: 0.006,
+        closingCostPct: 0.03,
+        rentMultiplier: 0.007,
+        appreciationRate: 0.03,
+      },
+      rent: { hudFmrSelected: 2000, hudMetro: 'M', rentcastEst: 0 },
+    });
+    const withOverrides = calculateListingAnalysis({
+      listing: {
+        price: 200000,
+        state: 'PA',
+        hoaMonthly: 0,
+        propertyTaxMonthlyOverride: 100,
+        insuranceMonthlyOverride: 50,
+      },
+      assumptions: {
+        downPaymentPct: 0.2,
+        interestRate: 0.07,
+        loanTermYears: 30,
+        vacancyPct: 0.08,
+        maintenancePct: 0.08,
+        propertyMgmtPct: 0.1,
+        insuranceRate: 0.006,
+        closingCostPct: 0.03,
+        rentMultiplier: 0.007,
+        appreciationRate: 0.03,
+      },
+      rent: { hudFmrSelected: 2000, hudMetro: 'M', rentcastEst: 0 },
+    });
+    expect(withOverrides.propertyTaxMonthly).toBe(100);
+    expect(withOverrides.insuranceMonthly).toBe(50);
+    expect(withOverrides.monthlyCf).not.toBe(base.monthlyCf);
+  });
+
+  it('computes DSCR when P&I is meaningful', () => {
+    const result = calculateListingAnalysis({
+      listing: { price: 200000, state: 'PA', hoaMonthly: 0 },
+      assumptions: {
+        downPaymentPct: 0.2,
+        interestRate: 0.07,
+        loanTermYears: 30,
+        vacancyPct: 0.08,
+        maintenancePct: 0.08,
+        propertyMgmtPct: 0.1,
+        insuranceRate: 0.006,
+        closingCostPct: 0.03,
+        rentMultiplier: 0.007,
+        appreciationRate: 0.03,
+      },
+      rent: { hudFmrSelected: 2500, hudMetro: 'M', rentcastEst: 0 },
+    });
+    expect(result.dscr).not.toBeNull();
+    expect(result.dscr!).toBeGreaterThan(0);
+  });
 });

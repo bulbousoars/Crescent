@@ -1,10 +1,30 @@
 import { ExternalLink } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { DealWhatIfLab } from '@/components/DealWhatIfLab';
+import { MarketContextPanel, type MarketContextDto } from '@/components/MarketContextPanel';
 import { PipelineControls } from '@/components/PipelineControls';
-import { prisma } from '@/lib/prisma';
+import { calculateListingAnalysis, toAnalysisAssumptions } from '@/lib/analysis';
+import { defaultAssumptions } from '@/lib/defaultAssumptions';
 import { compactDate, currency, percent } from '@/lib/format';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
+
+function defaultMarketDto(listingId: string): MarketContextDto {
+  return {
+    listingId,
+    rentCompSummary: '',
+    neighborhoodTags: '',
+    floodZoneNote: '',
+    schoolTierNote: '',
+    rentControlNote: '',
+    hoaSpecialAssessmentNote: '',
+    macroStressNotes: '',
+    propertyTaxMonthlyOverride: null,
+    insuranceMonthlyOverride: null,
+    userNotes: '',
+  };
+}
 
 export default async function ListingDetailPage({
   params,
@@ -19,11 +39,85 @@ export default async function ListingDetailPage({
       analysis: { orderBy: { computedAt: 'desc' }, take: 1 },
       events: { orderBy: { createdAt: 'desc' }, take: 50 },
       priceHistory: { orderBy: { observedAt: 'asc' } },
+      marketContext: true,
     },
   });
 
   if (!listing) notFound();
   const analysis = listing.analysis[0];
+
+  const assumptionRow =
+    (await prisma.assumptionSet.findFirst({ where: { isDefault: true }, orderBy: { updatedAt: 'desc' } })) ??
+    (await prisma.assumptionSet.findFirst({ orderBy: { createdAt: 'asc' } }));
+
+  const initialAssumptions = assumptionRow
+    ? toAnalysisAssumptions(assumptionRow)
+    : toAnalysisAssumptions({
+        downPaymentPct: defaultAssumptions.downPaymentPct,
+        interestRate: defaultAssumptions.interestRate,
+        loanTermYears: defaultAssumptions.loanTermYears,
+        vacancyPct: defaultAssumptions.vacancyPct,
+        maintenancePct: defaultAssumptions.maintenancePct,
+        propertyMgmtPct: defaultAssumptions.propertyMgmtPct,
+        insuranceRate: defaultAssumptions.insuranceRate,
+        closingCostPct: defaultAssumptions.closingCostPct,
+        rentMultiplier: defaultAssumptions.rentMultiplier,
+        appreciationRate: defaultAssumptions.appreciationRate,
+      });
+
+  const savedLive =
+    analysis && assumptionRow
+      ? calculateListingAnalysis({
+          listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
+          assumptions: toAnalysisAssumptions(assumptionRow),
+          rent: {
+            hudFmrSelected: analysis.hudFmrSelected,
+            hudMetro: analysis.hudMetro,
+            rentcastEst: analysis.rentcastEst,
+          },
+        })
+      : analysis && !assumptionRow
+        ? calculateListingAnalysis({
+            listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
+            assumptions: initialAssumptions,
+            rent: {
+              hudFmrSelected: analysis.hudFmrSelected,
+              hudMetro: analysis.hudMetro,
+              rentcastEst: analysis.rentcastEst,
+            },
+          })
+        : null;
+
+  const marketDto: MarketContextDto = listing.marketContext
+    ? {
+        listingId: id,
+        rentCompSummary: listing.marketContext.rentCompSummary,
+        neighborhoodTags: listing.marketContext.neighborhoodTags,
+        floodZoneNote: listing.marketContext.floodZoneNote,
+        schoolTierNote: listing.marketContext.schoolTierNote,
+        rentControlNote: listing.marketContext.rentControlNote,
+        hoaSpecialAssessmentNote: listing.marketContext.hoaSpecialAssessmentNote,
+        macroStressNotes: listing.marketContext.macroStressNotes,
+        propertyTaxMonthlyOverride: listing.marketContext.propertyTaxMonthlyOverride,
+        insuranceMonthlyOverride: listing.marketContext.insuranceMonthlyOverride,
+        userNotes: listing.marketContext.userNotes,
+      }
+    : defaultMarketDto(id);
+
+  const compStrip = analysis
+    ? {
+        rentZestimateMonthly: listing.rentZestimateMonthly,
+        daysOnZillow: listing.daysOnZillow,
+        sqft: listing.sqft,
+        rentcastLow: analysis.rentcastLow,
+        rentcastHigh: analysis.rentcastHigh,
+        rentcastEst: analysis.rentcastEst,
+        hudFmrSelected: analysis.hudFmrSelected,
+        hudMetro: analysis.hudMetro,
+        censusMedianHouseholdIncome: listing.censusMedianHouseholdIncome,
+        neighborhoodContextScore: listing.neighborhoodContextScore,
+      }
+    : null;
 
   return (
     <div className="stack">
@@ -73,6 +167,37 @@ export default async function ListingDetailPage({
             )}
           </div>
 
+          <MarketContextPanel listingId={listing.id} initial={marketDto} compStrip={compStrip} />
+
+          {analysis ? (
+            <DealWhatIfLab
+              listingId={listing.id}
+              listing={{ price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly }}
+              rentInputs={{
+                hudFmrSelected: analysis.hudFmrSelected,
+                hudMetro: analysis.hudMetro,
+                rentcastEst: analysis.rentcastEst,
+              }}
+              initialAssumptions={initialAssumptions}
+              savedSnapshot={
+                savedLive
+                  ? {
+                      monthlyCf: analysis.monthlyCf,
+                      cashOnCash: analysis.cashOnCash,
+                      capRate: analysis.capRate,
+                      cashRequired: analysis.cashRequired,
+                      rentUsed: analysis.rentUsed,
+                      dscr: savedLive.dscr,
+                    }
+                  : null
+              }
+              marketTaxIns={{
+                propertyTaxMonthlyOverride: marketDto.propertyTaxMonthlyOverride,
+                insuranceMonthlyOverride: marketDto.insuranceMonthlyOverride,
+              }}
+            />
+          ) : null}
+
           <div className="card">
             <h2>Price History</h2>
             {listing.priceHistory.length === 0 ? (
@@ -111,6 +236,10 @@ export default async function ListingDetailPage({
                   detail = (payload.status as string).replaceAll('_', ' ');
                 } else if (event.eventType === 'INGESTED_FROM_ZILLOW_EMAIL' && typeof payload.notificationType === 'string') {
                   detail = payload.notificationType as string;
+                } else if (event.eventType === 'WHAT_IF_SNAPSHOT') {
+                  const outs = payload.outputs as Record<string, unknown> | undefined;
+                  const mcf = typeof outs?.monthlyCf === 'number' ? outs.monthlyCf : null;
+                  detail = mcf != null ? `Lab snapshot · CF ${currency(mcf)}` : 'What-if lab snapshot';
                 }
                 return (
                   <div key={event.id}>

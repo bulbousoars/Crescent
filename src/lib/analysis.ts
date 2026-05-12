@@ -1,3 +1,4 @@
+import type { AssumptionSet } from '@prisma/client';
 import { resolveUnderwritingMonthlyRent } from './rentResolution';
 
 export type AnalysisAssumptions = {
@@ -20,6 +21,10 @@ export type AnalysisInput = {
     hoaMonthly: number;
     /** When set, skips HUD/Rentcast resolution (stress / lab scenarios). */
     underwritingRentMonthly?: number;
+    /** When set (≥ 0), replaces model-estimated property tax. */
+    propertyTaxMonthlyOverride?: number | null;
+    /** When set (≥ 0), replaces model-estimated insurance. */
+    insuranceMonthlyOverride?: number | null;
   };
   assumptions: AnalysisAssumptions;
   rent: {
@@ -48,6 +53,8 @@ export type AnalysisResult = {
   cashRequired: number;
   equity5yr: number;
   tag: 'CASH FLOW' | 'EQUITY PLAY' | 'PASS';
+  /** NOI-based coverage of P&amp;I (monthly). Null when no meaningful debt service. */
+  dscr: number | null;
 };
 
 const noIncomeTaxStates = new Set(['AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WA', 'WY']);
@@ -99,8 +106,14 @@ export function calculateListingAnalysis(input: AnalysisInput): AnalysisResult {
     ? loanAmount * monthlyRate / (1 - Math.pow(1 + monthlyRate, -payments))
     : 0;
 
-  const propertyTaxMonthly = price * propertyTaxRate / 12;
-  const insuranceMonthly = price * assumptions.insuranceRate / 12;
+  const propertyTaxMonthly =
+    listing.propertyTaxMonthlyOverride != null && listing.propertyTaxMonthlyOverride >= 0
+      ? round(listing.propertyTaxMonthlyOverride)
+      : round(price * propertyTaxRate / 12);
+  const insuranceMonthly =
+    listing.insuranceMonthlyOverride != null && listing.insuranceMonthlyOverride >= 0
+      ? round(listing.insuranceMonthlyOverride)
+      : round(price * assumptions.insuranceRate / 12);
   const vacancyMonthly = rentUsed * assumptions.vacancyPct;
   const maintenanceMonthly = rentUsed * assumptions.maintenancePct;
   const propertyMgmtMonthly = rentUsed * assumptions.propertyMgmtPct;
@@ -127,6 +140,13 @@ export function calculateListingAnalysis(input: AnalysisInput): AnalysisResult {
     ? loanAmount * Math.pow(1 + monthlyRate, 60) - pAndI * (Math.pow(1 + monthlyRate, 60) - 1) / monthlyRate
     : loanAmount;
   const equity5yr = projectedValue5yr - balance5yr;
+  const monthlyNoiBeforeDebt =
+    rentUsed * (1 - assumptions.vacancyPct) -
+    propertyTaxMonthly -
+    insuranceMonthly -
+    (listing.hoaMonthly || 0) -
+    maintenanceMonthly;
+  const dscr = pAndI > 0.01 ? monthlyNoiBeforeDebt / pAndI : null;
   const tag = monthlyCf >= 100 ? 'CASH FLOW' : equity5yr / Math.max(cashRequired, 1) > 1 ? 'EQUITY PLAY' : 'PASS';
 
   return {
@@ -147,5 +167,35 @@ export function calculateListingAnalysis(input: AnalysisInput): AnalysisResult {
     cashRequired: round(cashRequired),
     equity5yr: round(equity5yr),
     tag,
+    dscr,
+  };
+}
+
+export type AssumptionSetMathFields = Pick<
+  AssumptionSet,
+  | 'downPaymentPct'
+  | 'interestRate'
+  | 'loanTermYears'
+  | 'vacancyPct'
+  | 'maintenancePct'
+  | 'propertyMgmtPct'
+  | 'insuranceRate'
+  | 'closingCostPct'
+  | 'rentMultiplier'
+  | 'appreciationRate'
+>;
+
+export function toAnalysisAssumptions(row: AssumptionSetMathFields): AnalysisAssumptions {
+  return {
+    downPaymentPct: row.downPaymentPct,
+    interestRate: row.interestRate,
+    loanTermYears: row.loanTermYears,
+    vacancyPct: row.vacancyPct,
+    maintenancePct: row.maintenancePct,
+    propertyMgmtPct: row.propertyMgmtPct,
+    insuranceRate: row.insuranceRate,
+    closingCostPct: row.closingCostPct,
+    rentMultiplier: row.rentMultiplier,
+    appreciationRate: row.appreciationRate,
   };
 }

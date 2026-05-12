@@ -64,6 +64,8 @@ model Listing {
   pipeline          ListingPipeline?
   events            ListingEvent[]
   priceHistory      ListingPriceHistory[]
+  partnerContacts   PartnerContact[]
+  marketContext     ListingMarketContext?
 
   @@index([state, city])
   @@index([notificationType])
@@ -114,6 +116,40 @@ model ListingPipeline {
   assignedTo     String         @default("")
   updatedAt      DateTime       @updatedAt
   listing        Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model PartnerContact {
+  id                String   @id @default(cuid())
+  name              String
+  role              String   @default("")
+  company           String   @default("")
+  email             String   @default("")
+  phone             String   @default("")
+  notes             String   @default("")
+  linkedListingId   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  linkedListing     Listing? @relation(fields: [linkedListingId], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@index([linkedListingId])
+}
+
+/// User-maintained buy-side context for a listing (comps notes, overrides, regulatory flags).
+model ListingMarketContext {
+  listingId                    String   @id
+  rentCompSummary              String   @default("")
+  neighborhoodTags             String   @default("")
+  floodZoneNote                String   @default("")
+  schoolTierNote               String   @default("")
+  rentControlNote              String   @default("")
+  hoaSpecialAssessmentNote     String   @default("")
+  macroStressNotes             String   @default("")
+  propertyTaxMonthlyOverride   Int?
+  insuranceMonthlyOverride     Int?
+  userNotes                    String   @default("")
+  updatedAt                    DateTime @updatedAt
+  listing                      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }
 
 model AssumptionSet {

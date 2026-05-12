@@ -403,6 +403,10 @@ h3 {
   color: #fff;
 }
 
+.button.ghost {
+  background: var(--panel-soft);
+}
+
 .button:hover,
 .icon-button:hover {
   border-color: var(--accent);
@@ -1170,4 +1174,72 @@ textarea.field {
   border-bottom: 1px solid var(--line);
   padding: 8px 10px;
   text-align: left;
+}
+
+/* Buy-side: what-if lab + market context */
+.deal-lab-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .deal-lab-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.deal-lab-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.deal-lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  align-items: center;
+}
+
+.deal-lab-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0;
+}
+
+.deal-lab-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.panel-soft {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+}
+
+label.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin: 4px 0;
+}
+
+.partners-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.partners-table-wrap {
+  overflow-x: auto;
 }

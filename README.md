@@ -83,7 +83,7 @@ docs/                   # design notes and plans
 
 ## Roadmap
 
-See `docs/` for current design notes. Near-term:
+See `docs/` for current design notes. **Buy-side product direction** (deal math lab, market context, partner Rolodex, dashboard cues): [`docs/PRODUCT_BUY_SIDE.md`](docs/PRODUCT_BUY_SIDE.md). Near-term:
 
 - Mail-provider abstraction (Gmail OAuth + IMAP fallback) so the app pulls listings directly.
 - Port n8n parsing/criteria/financials rules into the app.
