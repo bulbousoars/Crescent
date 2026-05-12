@@ -640,6 +640,34 @@ th {
   vertical-align: middle;
 }
 
+.listings-table thead th .th-sort {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 700;
+  gap: 6px;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.listings-table thead th .th-sort:hover {
+  color: var(--accent);
+}
+
+.listings-table thead th .th-sort-icons {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  min-width: 1em;
+}
+
+.listings-table thead th:last-child {
+  font-weight: 700;
+}
+
 /* Address cell can wrap a bit without squishing everything else */
 .listings-table td:first-child,
 .listings-table th:first-child {

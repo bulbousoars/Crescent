@@ -71,25 +71,129 @@ function parseDollarAmount(match: RegExpMatchArray | null): number {
   return Math.round(amount);
 }
 
-function extractLikelyListingPrice(text: string): number {
+function findAddressDollarAnchor(source: string, address: string): number {
+  const hay = source.toLowerCase().replace(/\s+/g, ' ');
+  const full = clean(address).toLowerCase().replace(/\s+/g, ' ');
+  if (full.length >= 10) {
+    const i = hay.indexOf(full);
+    if (i !== -1) return i;
+  }
+  const street = clean(address).split(',')[0]?.trim().toLowerCase().replace(/\s+/g, ' ') ?? '';
+  if (street.length >= 8) {
+    const i = hay.indexOf(street);
+    if (i !== -1) return i;
+  }
+  const zip = (address.match(/\b(\d{5})\s*$/) || [])[1];
+  if (zip && zip.length === 5) {
+    const i = hay.indexOf(zip);
+    if (i !== -1) return i;
+  }
+  return -1;
+}
+
+/**
+ * Pick list price from all `$…` amounts in the email body.
+ *
+ * Zillow templates often include **down payment**, **est. monthly payment**, **Zestimate**, etc.
+ * Taking `Math.max` alone wrongly picked e.g. $225,000 (20% down on a $1.125M home) over the
+ * real list price when the larger figure sat outside the parsed window or was formatted oddly.
+ * We score each candidate with local context, then prefer the best match **nearest the listing
+ * address** (Zillow often puts promo “from $225k” lines above the real `$153,300` line).
+ */
+function extractLikelyListingPrice(text: string, address: string): number {
   const source = String(text || '');
   const re = /\$([\d,.]+)\s*([KkMm])?/g;
-  const candidates: number[] = [];
+  type Cand = { value: number; score: number; index: number };
+  const cands: Cand[] = [];
+
   for (const m of source.matchAll(re)) {
     const value = parseDollarAmount(m as unknown as RegExpMatchArray);
     if (!value) continue;
     const suffix = String(m[2] || '').toUpperCase();
-    const after = source.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 12).toLowerCase();
-    const looksMonthly = /\/\s*mo\b/.test(after) || /\bper\s+month\b/.test(after) || /\bmonthly\b/.test(after);
+    const idx = m.index ?? 0;
+    const len = m[0].length;
+    const afterShort = source.slice(idx + len, idx + len + 24).toLowerCase();
+    const looksMonthly =
+      /\/\s*mo\b/.test(afterShort) ||
+      /\bper\s+month\b/.test(afterShort) ||
+      /\bmonthly\b/.test(afterShort) ||
+      /\b\/mo\b/.test(afterShort);
 
-    // Filter out monthly payment / rent amounts and tiny numbers that are very likely not list price.
     if (looksMonthly) continue;
     if (value < 10_000 && suffix !== 'K' && suffix !== 'M') continue;
-    candidates.push(value);
+
+    const before = source.slice(Math.max(0, idx - 200), idx).toLowerCase();
+    const after = source.slice(idx + len, Math.min(source.length, idx + len + 120)).toLowerCase();
+    const ctx = `${before} ${after}`;
+
+    let score = 0;
+
+    if (
+      /\b(est\.?\s*payment|estimated\s+payment|monthly\s+payment|monthly\s+mortgage|mortgage\s+payment|zestimate|rent\s*zestimate|\brent\b|\blease\b|\/mo\b)\b/i.test(
+        ctx,
+      )
+    ) {
+      score -= 160;
+    }
+    if (
+      /\b(down\s*payment|\d{1,2}\s*%\s*down|closing\s*costs?|loan\s*amount|p&i\b|principal\s*[&+]\s*interest|pmi\b|mortgage\s+insurance|due\s+at\s+closing|cash\s+to\s+close)\b/i.test(
+        ctx,
+      )
+    ) {
+      score -= 160;
+    }
+    if (/\b(property\s+tax|homeowners?\s+insurance|hoa\s*(fee|dues|per|\/))\b/i.test(ctx) && value < 75_000) {
+      score -= 100;
+    }
+    if (/\b(homes?\s+from|starting\s+at|from\s+only|pre-?qualified|pre-?approved|loan\s+options)\b/i.test(ctx)) {
+      score -= 120;
+    }
+
+    if (
+      /\b(list(?:ed)?\s+at|asking\s+price|sale\s+price|for\s+sale|home\s+price|now\s+)\b/i.test(before.slice(-120))
+    ) {
+      score += 75;
+    }
+    if (/\d(?:\.\d)?\s*(?:bd|bed|beds)\b/i.test(after.slice(0, 90))) {
+      score += 50;
+    }
+    if (/\d[\d,]*\s*(?:sq\s*ft|sqft)\b/i.test(after.slice(0, 110))) {
+      score += 40;
+    }
+
+    cands.push({ value, score, index: idx });
   }
-  if (candidates.length === 0) return 0;
-  // Choose the largest plausible dollar amount as the list price (beats "reduced by $5,000", etc.)
-  return Math.max(...candidates);
+
+  if (cands.length === 0) return 0;
+
+  const anchor = findAddressDollarAnchor(source, address);
+  const NEAR = 280;
+  const near = anchor >= 0 ? cands.filter((c) => Math.abs(c.index - anchor) <= NEAR) : [];
+  /** List price almost always appears at or after the address; promo “from $225k” sits above it. */
+  const afterAddr = anchor >= 0 ? cands.filter((c) => c.index >= anchor) : [];
+
+  let pool: typeof cands;
+  if (anchor >= 0 && afterAddr.length > 0) {
+    const narrowed = afterAddr.filter((c) => Math.abs(c.index - anchor) <= NEAR);
+    pool = narrowed.length > 0 ? narrowed : afterAddr;
+  } else if (anchor >= 0 && near.length > 0) {
+    pool = near;
+  } else {
+    pool = cands;
+  }
+
+  const bestScore = Math.max(...pool.map((c) => c.score));
+  const tier = pool.filter((c) => c.score === bestScore);
+  const sorted =
+    anchor >= 0
+      ? [...tier].sort((a, b) => {
+          const da = Math.abs(a.index - anchor);
+          const db = Math.abs(b.index - anchor);
+          if (da !== db) return da - db;
+          return a.index - b.index;
+        })
+      : [...tier].sort((a, b) => a.index - b.index);
+  return sorted[0].value;
 }
 
 function extractAddress(text: string): string {
@@ -187,7 +291,7 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
   if (!address) return null;
   const { city, state, zip } = splitAddress(address);
 
-  const price = extractLikelyListingPrice(normalized);
+  const price = extractLikelyListingPrice(normalized, address);
   const priceCut = parseDollarAmount(
     normalized.match(/price cut[:\s]*\$([\d,.]+)\s*([KkMm])?/i) ||
       normalized.match(/reduced\s+by\s+\$([\d,.]+)\s*([KkMm])?/i) ||

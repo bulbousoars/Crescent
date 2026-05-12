@@ -3,10 +3,18 @@ import { chooseAssumptionProfile } from '@/lib/assumptionProfiles';
 import { calculateListingAnalysis } from '@/lib/analysis';
 import { defaultAssumptions } from '@/lib/defaultAssumptions';
 import { buildListingWhere, normalizeListingFilters, type RawListingFilters } from '@/lib/listingFilters';
+import {
+  buildListingOrderBy,
+  isComputedSortColumn,
+  normalizeListingSort,
+  serializeListingDataQuery,
+  sortListingsByComputedColumn,
+} from '@/lib/listingSort';
 import { compactDate, currency, percent } from '@/lib/format';
 import { prisma } from '@/lib/prisma';
 import { ListingsFilterPanel } from '@/components/ListingsFilterPanel';
 import { EditableListingRow } from '@/components/EditableListingRow';
+import { ListingDataTableHead } from '@/components/ListingDataTableHead';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +23,14 @@ const statuses = ['NEW', 'REVIEW', 'KEEP', 'DECLINED', 'OFFER', 'UNDER_CONTRACT'
 type SearchParams = RawListingFilters & {
   assumptionId?: string;
 };
+
+function toQueryParams(params: SearchParams): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (typeof v === 'string' && v.trim()) out[k] = v;
+  }
+  return out;
+}
 
 function withParams(params: SearchParams, updates: Record<string, string | undefined>) {
   const query = new URLSearchParams();
@@ -30,11 +46,7 @@ function withParams(params: SearchParams, updates: Record<string, string | undef
 }
 
 function exportCsvHref(params: SearchParams): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (typeof value === 'string' && value.trim()) query.set(key, value);
-  }
-  const qs = query.toString();
+  const qs = serializeListingDataQuery(toQueryParams(params), {});
   return qs ? `/api/data/export?${qs}` : '/api/data/export';
 }
 
@@ -46,15 +58,17 @@ export default async function DataPage({
   const params = await searchParams;
   const filters = normalizeListingFilters(params);
   const where = buildListingWhere(filters) as Prisma.ListingWhereInput;
+  const sortState = normalizeListingSort(params);
+  const orderBy = buildListingOrderBy(sortState.column, sortState.dir) as Prisma.ListingOrderByWithRelationInput[];
 
-  const [listings, allProperties, assumptions, stateRows, cityRows] = await Promise.all([
+  const [listingsRaw, allProperties, assumptions, stateRows, cityRows] = await Promise.all([
     prisma.listing.findMany({
       where,
       include: {
         pipeline: true,
         analysis: { orderBy: { computedAt: 'desc' }, take: 1 },
       },
-      orderBy: { ingestedAt: 'desc' },
+      orderBy,
       take: 1000,
     }),
     prisma.listing.findMany({
@@ -79,7 +93,13 @@ export default async function DataPage({
     params.assumptionId,
   );
 
+  let listings = listingsRaw;
+  if (profile && sortState.column && isComputedSortColumn(sortState.column)) {
+    listings = sortListingsByComputedColumn(listings, sortState.column, sortState.dir, profile);
+  }
+
   const csvHref = exportCsvHref(params);
+  const tableQuery = toQueryParams(params);
 
   return (
     <div className="workspace">
@@ -111,24 +131,7 @@ export default async function DataPage({
 
       <div className="table-wrap listings-table">
         <table>
-          <thead>
-            <tr>
-              <th>Full address</th>
-              <th>Date Added</th>
-              <th>Status</th>
-              <th>Price</th>
-              <th>State</th>
-              <th>City</th>
-              <th>Beds</th>
-              <th>Baths</th>
-              <th>Sq ft</th>
-              <th>HOA</th>
-              <th title="Monthly cash flow">Monthly CF</th>
-              <th>Cap</th>
-              <th>Zillow</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+          <ListingDataTableHead params={tableQuery} />
           <tbody>
             {listings.map((listing) => {
               const snapshot = listing.analysis[0];

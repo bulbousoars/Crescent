@@ -8,6 +8,9 @@ export type RawListingFilters = {
   minBeds?: string;
   minBaths?: string;
   minSqft?: string;
+  /** `/data` table sort */
+  sort?: string;
+  sortDir?: string;
 };
 
 export type ListingFilters = {

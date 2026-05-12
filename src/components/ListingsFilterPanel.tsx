@@ -39,6 +39,8 @@ export function ListingsFilterPanel({
           )
         : null}
       <div className="filter-grid">
+        {raw.sort ? <input type="hidden" name="sort" value={raw.sort} /> : null}
+        {raw.sort ? <input type="hidden" name="sortDir" value={raw.sortDir === 'desc' ? 'desc' : 'asc'} /> : null}
         <label className="control wide">
           <span>Property address</span>
           <select className="field" name="listingId" defaultValue={filters.listingId ?? ''}>

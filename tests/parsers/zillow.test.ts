@@ -128,6 +128,32 @@ https://www.zillow.com/homedetails/10-Market-St-Camden-NJ-08102/12345_zpid/`;
     expect(result!.payloads[0].zpid).toBe('99999');
   });
 
+  it('prefers the listing price over "20% down" callouts (e.g. $225k down on a $1.125M home)', () => {
+    const body = `New listing
+
+123 Main St, Somewhere, PA 19000
+
+$1,125,000
+With 20% down ($225,000)
+3 bd | 2 ba | 2,000 sqft
+
+https://www.zillow.com/homedetails/123-Main-St-Somewhere-PA-19000/55555_zpid/`;
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    expect(result).not.toBeNull();
+    expect(result!.payloads[0].price).toBe(1_125_000);
+  });
+
+  it('prefers list price beside the address over a higher promo amount earlier in the email', () => {
+    const body = `Market spotlight — homes from $225,000 this spring.
+
+456 Oak Rd, Smallville, OH 43125 $153,300 3 bd 2 ba 1100 sqft
+https://www.zillow.com/homedetails/456-Oak-Smallville-OH-43125/11111_zpid/`;
+
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    expect(result).not.toBeNull();
+    expect(result!.payloads[0].price).toBe(153_300);
+  });
+
   it('does not match URL-token gibberish like rtoken=17c54ba6 as 4 baths', () => {
     // Verify the regex hardening: the n8n parser was bumped to require non-word prefix
     // for spec extraction so URL tokens don't pollute beds/baths.

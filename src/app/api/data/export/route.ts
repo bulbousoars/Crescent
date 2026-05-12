@@ -5,6 +5,12 @@ import { calculateListingAnalysis } from '@/lib/analysis';
 import { defaultAssumptions } from '@/lib/defaultAssumptions';
 import { rowsToCsv } from '@/lib/csv';
 import { buildListingWhere, normalizeListingFilters, type RawListingFilters } from '@/lib/listingFilters';
+import {
+  buildListingOrderBy,
+  isComputedSortColumn,
+  normalizeListingSort,
+  sortListingsByComputedColumn,
+} from '@/lib/listingSort';
 import { prisma } from '@/lib/prisma';
 
 const HEADERS = [
@@ -38,19 +44,23 @@ export async function GET(request: NextRequest) {
     minBaths: searchParams.get('minBaths') ?? undefined,
     minSqft: searchParams.get('minSqft') ?? undefined,
     assumptionId: searchParams.get('assumptionId') ?? undefined,
+    sort: searchParams.get('sort') ?? undefined,
+    sortDir: searchParams.get('sortDir') ?? undefined,
   };
 
   const filters = normalizeListingFilters(raw);
   const where = buildListingWhere(filters) as Prisma.ListingWhereInput;
+  const sortState = normalizeListingSort(raw);
+  const orderBy = buildListingOrderBy(sortState.column, sortState.dir) as Prisma.ListingOrderByWithRelationInput[];
 
-  const [listings, assumptions] = await Promise.all([
+  const [listingsRaw, assumptions] = await Promise.all([
     prisma.listing.findMany({
       where,
       include: {
         pipeline: true,
         analysis: { orderBy: { computedAt: 'desc' }, take: 1 },
       },
-      orderBy: { ingestedAt: 'desc' },
+      orderBy,
       take: 10_000,
     }),
     prisma.assumptionSet.findMany({ orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
@@ -67,6 +77,11 @@ export async function GET(request: NextRequest) {
     assumptions.length > 0 ? assumptions : [fallbackProfile],
     raw.assumptionId,
   );
+
+  let listings = listingsRaw;
+  if (profile && sortState.column && isComputedSortColumn(sortState.column)) {
+    listings = sortListingsByComputedColumn(listings, sortState.column, sortState.dir, profile);
+  }
 
   const rows: Array<Array<string | number | null | undefined>> = [Array.from(HEADERS)];
 
