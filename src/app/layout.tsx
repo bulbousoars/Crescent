@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { BarChart3, Cog, Database, Home, Settings, Workflow } from 'lucide-react';
+import Script from 'next/script';
+import { SidebarNav } from '@/components/SidebarNav';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import './globals.css';
 
@@ -8,18 +9,13 @@ export const metadata: Metadata = {
   description: 'Crescent Properties listing review and analysis app',
 };
 
-const nav = [
-  { href: '/', label: 'Overview', icon: Home },
-  { href: '/data', label: 'Listing Data', icon: Database },
-  { href: '/assumptions', label: 'Underwriting', icon: Settings },
-  { href: '/workflows', label: 'Ingestion Logs', icon: Workflow },
-  { href: '/settings', label: 'Settings', icon: Cog },
-];
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
+        <Script id="crescent-theme-init" strategy="beforeInteractive">
+          {`(function(){try{var k='crescent-theme',t=localStorage.getItem(k),a=['dark','light','dusk','dawn'];if(a.indexOf(t)>-1)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`}
+        </Script>
         <div className="shell">
           <aside className="sidebar">
             <div className="brand">
@@ -35,21 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span>Zillow intake, underwriting, and pipeline review</span>
               </div>
             </div>
-            <nav className="nav">
-              {nav.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <a key={item.href} href={item.href}>
-                    <Icon size={18} />
-                    {item.label}
-                  </a>
-                );
-              })}
-              <a href="/api/health">
-                <BarChart3 size={18} />
-                Health
-              </a>
-            </nav>
+            <SidebarNav />
             <ThemeSwitcher />
           </aside>
           <main className="main">{children}</main>

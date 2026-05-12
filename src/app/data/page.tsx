@@ -29,6 +29,15 @@ function withParams(params: SearchParams, updates: Record<string, string | undef
   return value ? `/?${value}` : '/';
 }
 
+function exportCsvHref(params: SearchParams): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string' && value.trim()) query.set(key, value);
+  }
+  const qs = query.toString();
+  return qs ? `/api/data/export?${qs}` : '/api/data/export';
+}
+
 export default async function DataPage({
   searchParams,
 }: {
@@ -70,6 +79,8 @@ export default async function DataPage({
     params.assumptionId,
   );
 
+  const csvHref = exportCsvHref(params);
+
   return (
     <div className="workspace">
       <div className="page-head workspace-head">
@@ -78,7 +89,12 @@ export default async function DataPage({
           <h1>All Listings</h1>
           <p className="subhead">Flat table of every ingested listing. Filter, sort, and edit values in place.</p>
         </div>
-        <span className="muted">{listings.length} shown</span>
+        <div className="page-head-meta">
+          <a className="button primary" href={csvHref} download>
+            Export CSV
+          </a>
+          <span className="muted">{listings.length} shown</span>
+        </div>
       </div>
 
       <ListingsFilterPanel

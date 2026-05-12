@@ -276,6 +276,11 @@ textarea {
   color: #fff;
 }
 
+.nav a.active {
+  background: var(--sidebar-active);
+  color: #fff;
+}
+
 .main {
   min-width: 0;
   padding: 28px 30px 42px;
@@ -288,6 +293,13 @@ textarea {
   gap: 18px;
   justify-content: space-between;
   margin-bottom: 22px;
+}
+
+.page-head-meta {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .eyebrow {
