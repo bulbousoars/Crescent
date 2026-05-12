@@ -9,7 +9,8 @@ Self-hosted real estate listing pipeline. Ingests Zillow alert emails, runs unde
 - Pulls listing data out of Zillow alert emails (single-listing alerts, digests, price-cut notifications).
 - Stores listings, price history, and per-listing events.
 - Computes financials per listing using your assumption set: P&I, taxes, insurance, NOI, cap rate, cash-on-cash, equity-5yr, after-tax cash flow, and a pass/fail tag against your criteria.
-- Renders a sortable list view, an editable data view, and a per-listing detail page with timeline and price history.
+- After each Zillow email ingest, optionally **enriches** listings with HUD county FMR, Rentcast long-term rent, and (with `CENSUS_API_KEY`) ACS median household income + an income-based neighborhood context score — then writes a `ListingAnalysis` snapshot using **conservative min(HUD, Rentcast)** rent when both are available.
+- Renders a sortable list view, an editable data view, a per-listing detail page with timeline and price history, and an **Insights** hub with eight acquisition dashboards.
 
 ## Stack
 
@@ -65,9 +66,10 @@ The mail-provider work in progress will move parsing inside the app so external 
 | `ADMIN_FORWARD_AUTH_ALLOWLIST` | no | Comma-separated allowlist of accepted values for `ADMIN_FORWARD_AUTH_HEADER`. If empty (and the header var is set), any non-empty value is accepted — only safe when the upstream proxy is the only way to reach the app. |
 | `NEXT_PUBLIC_APP_URL` | no | Public base URL of the app (used in links) |
 | `APP_BIND` | no | Bind address for the Compose port mapping (default `0.0.0.0`) |
-| `APP_PORT` | no | Host port for the Compose port mapping (default `3000`) |
-
-## Project layout
+| `HUD_API_TOKEN` | no | Bearer token from [HUD USER API](https://www.huduser.gov/hudapi/public/login). Used to fetch county FMR (`/fmr/statedata/{state}`) after ingest. Without it, underwriting falls back to Rentcast-only or the price multiplier. |
+| `HUD_FMR_YEAR` | no | FMR dataset year for HUD calls (default `2025`). |
+| `RENTCAST_API_KEY` | no | `X-Api-Key` for [Rentcast](https://developers.rentcast.io/) long-term rent estimates. |
+| `CENSUS_API_KEY` | no | U.S. Census Bureau API key for ACS median household income by ZCTA (neighborhood context on listings + scatter on Insights). |
 
 ```text
 prisma/                 # schema, migrations, seed

@@ -14,10 +14,21 @@ type ListingRow = {
   status: string;
   listingUrl: string;
   price: number;
+  previousListPrice: number | null;
   beds: number;
   baths: number;
   sqft: number;
+  yearBuilt: string;
+  lotSize: string;
   hoaMonthly: number;
+  propertyType: string;
+  mlsNumber: string;
+  daysOnZillow: number | null;
+  rentZestimateMonthly: number | null;
+  estimatedPaymentMonthly: number | null;
+  estimatedPAndIMonthly: number | null;
+  estimatedPropertyTaxMonthly: number | null;
+  estimatedInsuranceMonthly: number | null;
 };
 
 type Props = {
@@ -33,6 +44,45 @@ type EditableField = (typeof EDITABLE_FIELDS)[number];
 
 function currency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
+
+function dashCurrency(n: number | null | undefined) {
+  if (n == null) return '—';
+  return currency(n);
+}
+
+function dashText(s: string | null | undefined) {
+  const t = String(s ?? '').trim();
+  return t ? t : '—';
+}
+
+function dashInt(n: number | null | undefined) {
+  if (n == null) return '—';
+  return String(n);
+}
+
+function ZillowEmailCells({ listing }: { listing: ListingRow }) {
+  return (
+    <>
+      <td>{dashCurrency(listing.previousListPrice)}</td>
+      <td>{listing.state}</td>
+      <td>{listing.city}</td>
+      <td>{listing.beds}</td>
+      <td>{listing.baths}</td>
+      <td>{listing.sqft.toLocaleString()}</td>
+      <td>{dashText(listing.yearBuilt)}</td>
+      <td>{dashText(listing.lotSize)}</td>
+      <td>{currency(listing.hoaMonthly)}</td>
+      <td>{dashText(listing.propertyType)}</td>
+      <td>{dashText(listing.mlsNumber)}</td>
+      <td>{dashInt(listing.daysOnZillow)}</td>
+      <td>{dashCurrency(listing.rentZestimateMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedPaymentMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedPAndIMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedPropertyTaxMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedInsuranceMonthly)}</td>
+    </>
+  );
 }
 
 export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, ingestedAtDisplay, detailHref }: Props) {
@@ -108,7 +158,9 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
 
   const addressCell = (
     <td>
-      <Link href={detailHref}><strong>{listing.address}</strong></Link>
+      <Link href={detailHref}>
+        <strong>{listing.address}</strong>
+      </Link>
       <div className="muted">{listing.zip}</div>
     </td>
   );
@@ -121,19 +173,50 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
     </td>
   );
 
+  const emailMetricsView = <ZillowEmailCells listing={listing} />;
+
+  const emailMetricsEdit = (
+    <>
+      <td>{dashCurrency(listing.previousListPrice)}</td>
+      <td>{listing.state}</td>
+      <td>{listing.city}</td>
+      <td>
+        <input className="editable-input" type="number" min={0} step="0.5" value={draft.beds} onChange={(e) => setField('beds', e.target.value)} />
+      </td>
+      <td>
+        <input className="editable-input" type="number" min={0} step="0.5" value={draft.baths} onChange={(e) => setField('baths', e.target.value)} />
+      </td>
+      <td>
+        <input className="editable-input" type="number" min={0} step="1" value={draft.sqft} onChange={(e) => setField('sqft', e.target.value)} />
+      </td>
+      <td>{dashText(listing.yearBuilt)}</td>
+      <td>{dashText(listing.lotSize)}</td>
+      <td>
+        <input className="editable-input" type="number" min={0} step="1" value={draft.hoaMonthly} onChange={(e) => setField('hoaMonthly', e.target.value)} />
+      </td>
+      <td>{dashText(listing.propertyType)}</td>
+      <td>{dashText(listing.mlsNumber)}</td>
+      <td>{dashInt(listing.daysOnZillow)}</td>
+      <td>{dashCurrency(listing.rentZestimateMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedPaymentMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedPAndIMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedPropertyTaxMonthly)}</td>
+      <td>{dashCurrency(listing.estimatedInsuranceMonthly)}</td>
+    </>
+  );
+
   if (editing) {
     return (
       <tr className="row-editing">
         {addressCell}
         <td>{ingestedAtDisplay}</td>
-        <td><span className="status">{listing.status.replaceAll('_', ' ')}</span></td>
-        <td><input className="editable-input" type="number" min={0} step="100" value={draft.price} onChange={(e) => setField('price', e.target.value)} /></td>
-        <td>{listing.state}</td>
-        <td>{listing.city}</td>
-        <td><input className="editable-input" type="number" min={0} step="0.5" value={draft.beds} onChange={(e) => setField('beds', e.target.value)} /></td>
-        <td><input className="editable-input" type="number" min={0} step="0.5" value={draft.baths} onChange={(e) => setField('baths', e.target.value)} /></td>
-        <td><input className="editable-input" type="number" min={0} step="1" value={draft.sqft} onChange={(e) => setField('sqft', e.target.value)} /></td>
-        <td><input className="editable-input" type="number" min={0} step="1" value={draft.hoaMonthly} onChange={(e) => setField('hoaMonthly', e.target.value)} /></td>
+        <td>
+          <span className="status">{listing.status.replaceAll('_', ' ')}</span>
+        </td>
+        <td>
+          <input className="editable-input" type="number" min={0} step="100" value={draft.price} onChange={(e) => setField('price', e.target.value)} />
+        </td>
+        {emailMetricsEdit}
         <td>{monthlyCfDisplay}</td>
         <td>{capRateDisplay}</td>
         {zillowCell}
@@ -156,14 +239,11 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
     <tr>
       {addressCell}
       <td>{ingestedAtDisplay}</td>
-      <td><span className="status">{listing.status.replaceAll('_', ' ')}</span></td>
+      <td>
+        <span className="status">{listing.status.replaceAll('_', ' ')}</span>
+      </td>
       <td>{currency(listing.price)}</td>
-      <td>{listing.state}</td>
-      <td>{listing.city}</td>
-      <td>{listing.beds}</td>
-      <td>{listing.baths}</td>
-      <td>{listing.sqft.toLocaleString()}</td>
-      <td>{currency(listing.hoaMonthly)}</td>
+      {emailMetricsView}
       <td>{monthlyCfDisplay}</td>
       <td>{capRateDisplay}</td>
       {zillowCell}

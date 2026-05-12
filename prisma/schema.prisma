@@ -41,6 +41,18 @@ model Listing {
   hoaMonthly        Int                   @default(0)
   yearBuilt         String                @default("")
   lotSize           String                @default("")
+  rentZestimateMonthly          Int?
+  estimatedPaymentMonthly       Int?
+  estimatedPAndIMonthly         Int?
+  estimatedPropertyTaxMonthly   Int?
+  estimatedInsuranceMonthly     Int?
+  previousListPrice             Int?
+  propertyType                  String                @default("")
+  mlsNumber                     String                @default("")
+  daysOnZillow                  Int?
+  censusMedianHouseholdIncome   Int?
+  neighborhoodContextScore      Float?
+  enrichmentFetchedAt           DateTime?
   notificationType  String                @default("Unknown")
   searchName        String                @default("")
   sourceMessageId   String                @default("")

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { decryptJson, encryptJson, loadEncryptionKey } from '../lib/mail/crypto';
 import { getProvider } from '../lib/mail/registry';
 import { parseZillowMessage } from '../lib/parsers/zillow';
+import { enrichListingById } from '../lib/enrichment/enrichListing';
 import { ingestZillowEmail } from '../lib/ingestion';
 import type { MailAuthMaterial, MailProviderId, RawMessage, MailRules } from '../lib/mail/provider';
 
@@ -118,8 +119,13 @@ async function processMessage(
   try {
     for (const payload of parsed.payloads) {
       const ingest = await ingestZillowEmail(prisma, payload);
-      if (!firstListingId && ingest && typeof ingest === 'object' && 'listingId' in ingest) {
-        firstListingId = String(ingest.listingId);
+      if (ingest && typeof ingest === 'object' && 'listingId' in ingest) {
+        const lid = String(ingest.listingId);
+        if (!firstListingId) firstListingId = lid;
+        const enriched = await enrichListingById(prisma, lid);
+        if (!enriched.ok) {
+          console.warn(`[mail-poll] enrichment skipped for ${lid}: ${enriched.error ?? 'unknown'}`);
+        }
       }
     }
   } catch (error) {

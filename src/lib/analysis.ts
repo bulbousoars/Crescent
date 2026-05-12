@@ -1,3 +1,5 @@
+import { resolveUnderwritingMonthlyRent } from './rentResolution';
+
 export type AnalysisAssumptions = {
   downPaymentPct: number;
   interestRate: number;
@@ -16,11 +18,15 @@ export type AnalysisInput = {
     price: number;
     state: string;
     hoaMonthly: number;
+    /** When set, skips HUD/Rentcast resolution (stress / lab scenarios). */
+    underwritingRentMonthly?: number;
   };
   assumptions: AnalysisAssumptions;
   rent: {
     hudFmrSelected: number;
     hudMetro: string;
+    /** When set with HUD, underwriting uses min(HUD, Rentcast). */
+    rentcastEst?: number;
   };
 };
 
@@ -64,12 +70,25 @@ function round(value: number) {
 export function calculateListingAnalysis(input: AnalysisInput): AnalysisResult {
   const { listing, assumptions, rent } = input;
   const price = listing.price || 0;
-  const rentUsed = rent.hudFmrSelected > 0
-    ? rent.hudFmrSelected
-    : round(price * assumptions.rentMultiplier);
-  const rentSource = rent.hudFmrSelected > 0
-    ? `HUD FMR (${rent.hudMetro || 'selected zip'})`
-    : 'Price multiplier (0.7%)';
+  let rentUsed: number;
+  let rentSource: string;
+  if (listing.underwritingRentMonthly != null && listing.underwritingRentMonthly > 0) {
+    rentUsed = round(listing.underwritingRentMonthly);
+    rentSource = 'Scenario rent (stress test)';
+  } else {
+    const resolved = resolveUnderwritingMonthlyRent(
+      rent.hudFmrSelected,
+      rent.hudMetro,
+      rent.rentcastEst ?? 0,
+    );
+    if (resolved.rentUsed > 0) {
+      rentUsed = resolved.rentUsed;
+      rentSource = resolved.rentSource;
+    } else {
+      rentUsed = round(price * assumptions.rentMultiplier);
+      rentSource = 'Price multiplier (0.7%)';
+    }
+  }
 
   const propertyTaxRate = propertyTaxRates[listing.state] ?? 0.012;
   const stateTaxRate = noIncomeTaxStates.has(listing.state) ? 0 : 0.05;

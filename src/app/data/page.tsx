@@ -139,7 +139,11 @@ export default async function DataPage({
                 ? calculateListingAnalysis({
                     listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
                     assumptions: profile,
-                    rent: { hudFmrSelected: snapshot?.hudFmrSelected ?? 0, hudMetro: snapshot?.hudMetro ?? '' },
+                    rent: {
+                      hudFmrSelected: snapshot?.hudFmrSelected ?? 0,
+                      hudMetro: snapshot?.hudMetro ?? '',
+                      rentcastEst: snapshot?.rentcastEst ?? 0,
+                    },
                   })
                 : null;
               return (
@@ -154,10 +158,21 @@ export default async function DataPage({
                     status: listing.pipeline?.status ?? 'NEW',
                     listingUrl: listing.listingUrl,
                     price: listing.price,
+                    previousListPrice: listing.previousListPrice,
                     beds: listing.beds,
                     baths: listing.baths,
                     sqft: listing.sqft,
+                    yearBuilt: listing.yearBuilt,
+                    lotSize: listing.lotSize,
                     hoaMonthly: listing.hoaMonthly,
+                    propertyType: listing.propertyType,
+                    mlsNumber: listing.mlsNumber,
+                    daysOnZillow: listing.daysOnZillow,
+                    rentZestimateMonthly: listing.rentZestimateMonthly,
+                    estimatedPaymentMonthly: listing.estimatedPaymentMonthly,
+                    estimatedPAndIMonthly: listing.estimatedPAndIMonthly,
+                    estimatedPropertyTaxMonthly: listing.estimatedPropertyTaxMonthly,
+                    estimatedInsuranceMonthly: listing.estimatedInsuranceMonthly,
                   }}
                   monthlyCfDisplay={rowAnalysis ? currency(rowAnalysis.monthlyCf) : 'Pending'}
                   capRateDisplay={rowAnalysis ? percent(rowAnalysis.capRate) : 'Pending'}

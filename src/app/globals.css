@@ -628,13 +628,14 @@ th {
 
 /* All Listings (Data tab): horizontal scroll is OK; prioritize spacing + no overlap */
 .listings-table table {
-  min-width: 1560px;
+  min-width: 2600px;
   table-layout: auto;
   width: 100%;
 }
 
 .listings-table th,
 .listings-table td {
+  min-width: 72px;
   padding: 12px 14px;
   white-space: nowrap;
   vertical-align: middle;
@@ -668,72 +669,31 @@ th {
   font-weight: 700;
 }
 
-/* Address cell can wrap a bit without squishing everything else */
+/* Address + city get more room */
 .listings-table td:first-child,
 .listings-table th:first-child {
+  min-width: 340px;
   white-space: normal;
-  min-width: 360px;
-}
-
-.listings-table td:nth-child(2),
-.listings-table th:nth-child(2) {
-  min-width: 110px;
-}
-
-.listings-table td:nth-child(3),
-.listings-table th:nth-child(3) {
-  min-width: 120px;
-}
-
-.listings-table td:nth-child(4),
-.listings-table th:nth-child(4) {
-  min-width: 110px;
-}
-
-.listings-table td:nth-child(5),
-.listings-table th:nth-child(5) {
-  min-width: 70px;
-}
-
-.listings-table td:nth-child(6),
-.listings-table th:nth-child(6) {
-  min-width: 170px;
 }
 
 .listings-table td:nth-child(7),
-.listings-table th:nth-child(7),
-.listings-table td:nth-child(8),
-.listings-table th:nth-child(8) {
-  min-width: 70px;
+.listings-table th:nth-child(7) {
+  min-width: 160px;
 }
 
-.listings-table td:nth-child(9),
-.listings-table th:nth-child(9) {
-  min-width: 90px;
-}
-
-.listings-table td:nth-child(10),
-.listings-table th:nth-child(10) {
-  min-width: 110px;
-}
-
-.listings-table td:nth-child(11),
-.listings-table th:nth-child(11),
-.listings-table td:nth-child(12),
-.listings-table th:nth-child(12) {
-  min-width: 110px;
-}
-
-/* Zillow column */
-.listings-table td:nth-child(13),
-.listings-table th:nth-child(13) {
-  min-width: 90px;
-}
-
-/* Actions column */
 .listings-table td:nth-child(14),
 .listings-table th:nth-child(14) {
-  min-width: 80px;
+  min-width: 120px;
+}
+
+.listings-table td:nth-child(24),
+.listings-table th:nth-child(24) {
+  min-width: 140px;
+}
+
+.listings-table td:last-child,
+.listings-table th:last-child {
+  min-width: 100px;
 }
 
 .split-toolbar {
@@ -1120,4 +1080,94 @@ textarea.field {
   height: 18px;
   margin: 0;
   width: 18px;
+}
+
+/* --- Insights dashboards --- */
+.insights-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 20px;
+}
+
+.insights-toc a {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.insights-toc a:hover {
+  text-decoration: underline;
+}
+
+.insights-meta {
+  margin-bottom: 28px;
+}
+
+.insights-section {
+  border-top: 1px solid var(--line);
+  margin-top: 28px;
+  padding-top: 22px;
+}
+
+.insights-section h2 {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+
+.insights-subchart h3 {
+  font-size: 0.95rem;
+  margin: 16px 0 8px;
+}
+
+.insights-chart {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.insights-grid-2 {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-top: 12px;
+}
+
+.insights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.insights-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.insights-stale {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.insights-table-wrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.insights-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 520px;
+  width: 100%;
+}
+
+.insights-table th,
+.insights-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
 }

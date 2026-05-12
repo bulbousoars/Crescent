@@ -71,6 +71,120 @@ function parseDollarAmount(match: RegExpMatchArray | null): number {
   return Math.round(amount);
 }
 
+function parseMonthlyDollar(match: RegExpMatchArray | null): number | null {
+  const n = parseDollarAmount(match);
+  return n > 0 ? n : null;
+}
+
+function extractRentZestimateMonthly(text: string): number | null {
+  const patterns = [
+    /\brent\s*zestimate[®]?\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*(?:\/\s*mo|per\s+month)?\b/i,
+    /\bzestimate\s*rent\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*(?:\/\s*mo)?\b/i,
+  ];
+  for (const re of patterns) {
+    const v = parseMonthlyDollar(text.match(re));
+    if (v) return v;
+  }
+  return null;
+}
+
+function extractEstimatedPaymentMonthly(text: string): number | null {
+  const patterns = [
+    /\best\.?\s*payment\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*\/\s*mo\b/i,
+    /\bestimated\s+payment\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*(?:\/\s*mo|per\s+month)?\b/i,
+    /\bmonthly\s+payment\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\b/i,
+  ];
+  for (const re of patterns) {
+    const v = parseMonthlyDollar(text.match(re));
+    if (v) return v;
+  }
+  return null;
+}
+
+function extractEstimatedPAndIMonthly(text: string): number | null {
+  const patterns = [
+    /(?:principal\s*[&+]\s*interest|principal\s+and\s+interest|p\s*&\s*i)\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*(?:\/\s*mo)?\b/i,
+  ];
+  for (const re of patterns) {
+    const v = parseMonthlyDollar(text.match(re));
+    if (v) return v;
+  }
+  return null;
+}
+
+function extractEstimatedPropertyTaxMonthly(text: string): number | null {
+  const patterns = [
+    /\bproperty\s+tax(?:es)?\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*(?:\/\s*mo|per\s+month)?\b/i,
+    /\btaxes?\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*\/\s*mo\b/i,
+  ];
+  for (const re of patterns) {
+    const v = parseMonthlyDollar(text.match(re));
+    if (v) return v;
+  }
+  return null;
+}
+
+function extractEstimatedInsuranceMonthly(text: string): number | null {
+  const patterns = [
+    /\b(?:home(?:owners?)?\s+insurance|homeowners?\s+insurance|insurance)\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\s*(?:\/\s*mo|per\s+month)?\b/i,
+  ];
+  for (const re of patterns) {
+    const v = parseMonthlyDollar(text.match(re));
+    if (v) return v;
+  }
+  return null;
+}
+
+function extractPreviousListPrice(text: string, currentPrice: number): number | null {
+  const patterns = [
+    /(?:\bwas\b|previously\s+listed\s+at|reduced\s+from|price\s+was|originally\s+listed\s+at)\s*[:\s]*\$([\d,.]+)\s*([KkMm])?/gi,
+    /\$([\d,.]+)\s*([KkMm])?\s*(?:\bwas\b|before\s+the\s+price\s+cut)/gi,
+  ];
+  let best = 0;
+  for (const re of patterns) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const v = parseDollarAmount(m);
+      if (!v || v === currentPrice) continue;
+      if (v > best) best = v;
+    }
+  }
+  if (!best) return null;
+  if (currentPrice > 0 && best < currentPrice * 0.5) return null;
+  return best;
+}
+
+function extractPropertyType(text: string): string {
+  const m = text.match(
+    /\b(Single\s+family\s+residence|Single\s*[-]?\s*family|Condo(?:minium)?|Townhouse|Townhome|Multi[-\s]?family|Co[-\s]?op|Manufactured\s+home|Mobile\s+home|Apartment)\b/i,
+  );
+  if (!m) return '';
+  return clean(m[1]).replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+function extractMlsNumber(text: string): string {
+  const patterns = [
+    /\bMLS\s*[#:]?\s*([A-Z0-9][A-Z0-9.-]{2,24})\b/i,
+    /\bMLS\s*ID\s*[:.]?\s*([A-Z0-9][A-Z0-9.-]{2,24})\b/i,
+    /\bListing\s*#\s*[:.]?\s*([A-Z0-9][A-Z0-9.-]{2,24})\b/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m?.[1]) return m[1].trim();
+  }
+  return '';
+}
+
+function extractDaysOnZillow(text: string): number | null {
+  const m =
+    text.match(/\b(\d{1,4})\s+days?\s+on\s+zillow\b/i) || text.match(/\bon\s+zillow\s+for\s+(\d{1,4})\s+days?\b/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  if (!Number.isFinite(n) || n < 0 || n >= 20000) return null;
+  return n;
+}
+
 function findAddressDollarAnchor(source: string, address: string): number {
   const hay = source.toLowerCase().replace(/\s+/g, ' ');
   const full = clean(address).toLowerCase().replace(/\s+/g, ' ');
@@ -147,6 +261,13 @@ function extractLikelyListingPrice(text: string, address: string): number {
     }
     if (/\b(homes?\s+from|starting\s+at|from\s+only|pre-?qualified|pre-?approved|loan\s+options)\b/i.test(ctx)) {
       score -= 120;
+    }
+    if (
+      /\b(previously\s+listed|originally\s+listed|listing\s+was|price\s+was|was\s+listed|reduced\s+from)\b/i.test(
+        before.slice(-140),
+      )
+    ) {
+      score -= 260;
     }
 
     if (
@@ -267,6 +388,15 @@ interface BuildListingResult {
   hoa: number;
   yearBuilt: string;
   lotSize: string;
+  rentZestimateMonthly: number | null;
+  estimatedPaymentMonthly: number | null;
+  estimatedPAndIMonthly: number | null;
+  estimatedPropertyTaxMonthly: number | null;
+  estimatedInsuranceMonthly: number | null;
+  previousListPrice: number | null;
+  propertyType: string;
+  mlsNumber: string;
+  daysOnZillow: number | null;
 }
 
 function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingResult | null {
@@ -319,6 +449,15 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
     hoa,
     yearBuilt: ybMatch ? ybMatch[1] : '',
     lotSize: lotMatch ? clean(lotMatch[1]) : '',
+    rentZestimateMonthly: extractRentZestimateMonthly(normalized),
+    estimatedPaymentMonthly: extractEstimatedPaymentMonthly(normalized),
+    estimatedPAndIMonthly: extractEstimatedPAndIMonthly(normalized),
+    estimatedPropertyTaxMonthly: extractEstimatedPropertyTaxMonthly(normalized),
+    estimatedInsuranceMonthly: extractEstimatedInsuranceMonthly(normalized),
+    previousListPrice: extractPreviousListPrice(normalized, price),
+    propertyType: extractPropertyType(normalized),
+    mlsNumber: extractMlsNumber(normalized),
+    daysOnZillow: extractDaysOnZillow(normalized),
   };
 }
 
@@ -410,6 +549,15 @@ export function parseZillowMessage(message: RawMessage): ParsedZillowEmail | nul
     hoaMonthly: listing.hoa,
     yearBuilt: listing.yearBuilt,
     lotSize: listing.lotSize,
+    rentZestimateMonthly: listing.rentZestimateMonthly,
+    estimatedPaymentMonthly: listing.estimatedPaymentMonthly,
+    estimatedPAndIMonthly: listing.estimatedPAndIMonthly,
+    estimatedPropertyTaxMonthly: listing.estimatedPropertyTaxMonthly,
+    estimatedInsuranceMonthly: listing.estimatedInsuranceMonthly,
+    previousListPrice: listing.previousListPrice,
+    propertyType: listing.propertyType,
+    mlsNumber: listing.mlsNumber,
+    daysOnZillow: listing.daysOnZillow,
     notificationType: classification.notificationType,
     searchName: classification.searchName,
     gmailMessageId: message.providerMsgId,

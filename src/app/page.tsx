@@ -112,6 +112,7 @@ export default async function ListingsPage({
       rent: {
         hudFmrSelected: selectedSnapshot?.hudFmrSelected ?? 0,
         hudMetro: selectedSnapshot?.hudMetro ?? '',
+        rentcastEst: selectedSnapshot?.rentcastEst ?? 0,
       },
     })
     : null;

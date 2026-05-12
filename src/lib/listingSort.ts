@@ -9,12 +9,23 @@ export const LISTING_SORT_COLUMNS = [
   'ingestedAt',
   'status',
   'price',
+  'previousListPrice',
   'state',
   'city',
   'beds',
   'baths',
   'sqft',
+  'yearBuilt',
+  'lotSize',
   'hoaMonthly',
+  'propertyType',
+  'mlsNumber',
+  'daysOnZillow',
+  'rentZestimateMonthly',
+  'estimatedPaymentMonthly',
+  'estimatedPAndIMonthly',
+  'estimatedPropertyTaxMonthly',
+  'estimatedInsuranceMonthly',
   'monthlyCf',
   'capRate',
   'listingUrl',
@@ -57,12 +68,23 @@ export function buildListingOrderBy(
     case 'address':
     case 'ingestedAt':
     case 'price':
+    case 'previousListPrice':
     case 'state':
     case 'city':
     case 'beds':
     case 'baths':
     case 'sqft':
+    case 'yearBuilt':
+    case 'lotSize':
     case 'hoaMonthly':
+    case 'propertyType':
+    case 'mlsNumber':
+    case 'daysOnZillow':
+    case 'rentZestimateMonthly':
+    case 'estimatedPaymentMonthly':
+    case 'estimatedPAndIMonthly':
+    case 'estimatedPropertyTaxMonthly':
+    case 'estimatedInsuranceMonthly':
     case 'listingUrl':
       return [{ [column]: dir }, tie];
     default:
@@ -83,7 +105,7 @@ type ListingRowForComputedSort = {
   price: number;
   state: string;
   hoaMonthly: number;
-  analysis: { hudFmrSelected: number; hudMetro: string }[];
+  analysis: { hudFmrSelected: number; hudMetro: string; rentcastEst: number }[];
 };
 
 export function sortListingsByComputedColumn<T extends ListingRowForComputedSort>(
@@ -99,7 +121,11 @@ export function sortListingsByComputedColumn<T extends ListingRowForComputedSort
     const rowAnalysis = calculateListingAnalysis({
       listing: { price: l.price, state: l.state, hoaMonthly: l.hoaMonthly },
       assumptions: profile,
-      rent: { hudFmrSelected: snapshot?.hudFmrSelected ?? 0, hudMetro: snapshot?.hudMetro ?? '' },
+      rent: {
+        hudFmrSelected: snapshot?.hudFmrSelected ?? 0,
+        hudMetro: snapshot?.hudMetro ?? '',
+        rentcastEst: snapshot?.rentcastEst ?? 0,
+      },
     });
     return {
       row: l,

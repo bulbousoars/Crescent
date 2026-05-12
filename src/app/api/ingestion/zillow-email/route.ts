@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized } from '@/lib/auth';
+import { enrichListingById } from '@/lib/enrichment/enrichListing';
 import { ingestZillowEmail } from '@/lib/ingestion';
 import { prisma } from '@/lib/prisma';
 
@@ -11,6 +12,10 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
     const result = await ingestZillowEmail(prisma, payload);
+    if (result && typeof result === 'object' && 'listingId' in result) {
+      const enrich = await enrichListingById(prisma, String(result.listingId));
+      return NextResponse.json({ ...result, enrichment: enrich });
+    }
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown ingestion error';

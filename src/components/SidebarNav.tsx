@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, Cog, Database, Home, Settings, Workflow } from 'lucide-react';
+import { BarChart3, Cog, Database, Home, LayoutDashboard, Settings, Workflow } from 'lucide-react';
 
 const mainNav = [
   { href: '/', label: 'Overview', icon: Home },
   { href: '/data', label: 'Listing Data', icon: Database },
+  { href: '/insights', label: 'Insights', icon: LayoutDashboard },
   { href: '/assumptions', label: 'Underwriting', icon: Settings },
   { href: '/workflows', label: 'Ingestion Logs', icon: Workflow },
   { href: '/settings', label: 'Settings', icon: Cog },
