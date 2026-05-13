@@ -27,6 +27,8 @@ export default async function MailAdminPage({
   const params = await searchParams;
   const callbackBase =
     (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/admin/mail/callback/gmail';
+  const msCallbackBase =
+    (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/admin/mail/callback/microsoft';
 
   return (
     <div className="workspace">
@@ -166,13 +168,36 @@ export default async function MailAdminPage({
             <label className="admin-field">
               <span>Processed label</span>
               <input className="field" name="processedLabel" defaultValue="Real-Estate" />
-              <span className="help">Applied after ingest; Gmail IMAP also removes processed mail from Inbox.</span>
+              <span className="help">After ingest: Gmail/IMAP archive or label; Microsoft 365 moves mail into a folder with this name.</span>
             </label>
 
             <button type="submit" className="button primary" style={{ marginTop: 4 }}>
               Connect IMAP
             </button>
           </form>
+        </section>
+
+        <section className="card">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
+            Microsoft 365 / Outlook <span className="status" style={{ marginLeft: 6 }}>OAuth</span>
+          </h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Uses Microsoft Graph (same mail as Outlook). Register an Entra ID app with redirect URI:
+          </p>
+          <p>
+            <code style={{ wordBreak: 'break-all' }}>{msCallbackBase}</code>
+          </p>
+          <p className="muted" style={{ marginTop: 8 }}>
+            Set <code>MICROSOFT_OAUTH_CLIENT_ID</code>, <code>MICROSOFT_OAUTH_CLIENT_SECRET</code>, and optionally{' '}
+            <code>MICROSOFT_OAUTH_TENANT</code> (default <code>common</code>).
+          </p>
+          <Link href="/api/admin/mail/connect/microsoft" className="button">
+            Connect via Microsoft 365
+          </Link>
+          <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>
+            After ingest, messages are moved to a mail folder named from your &quot;processed label&quot; rule (default{' '}
+            <code>Real-Estate</code>).
+          </p>
         </section>
 
         <section className="card">

@@ -250,3 +250,31 @@ model MailMessage {
   @@index([status])
   @@index([accountId, receivedAt])
 }
+
+model NotificationRule {
+  id              String   @id @default(cuid())
+  enabled         Boolean  @default(true)
+  name            String   @default("")
+  recipientEmail  String
+  minMonthlyCf    Int?
+  maxMonthlyCf    Int?
+  minCapRate      Float?
+  maxCapRate      Float?
+  minPricePerSqft Float?
+  maxPricePerSqft Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  logs            NotificationLog[]
+}
+
+model NotificationLog {
+  id         String   @id @default(cuid())
+  ruleId     String
+  listingId  String
+  analysisId String
+  sentAt     DateTime @default(now())
+  rule       NotificationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, listingId, analysisId])
+  @@index([listingId])
+}

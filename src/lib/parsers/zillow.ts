@@ -369,6 +369,51 @@ function extractCandidateLinks(text: string): CandidateLink[] {
   return out;
 }
 
+/** Prefer the homedetails link closest to the listing address — first URL in HTML is often a promo/tracking link, not the property. */
+function findBestHomedetailsLink(source: string, subject: string): CandidateLink | null {
+  const links = extractCandidateLinks(source).filter((l) => /\/homedetails\//i.test(l.normalized));
+  if (!links.length) return null;
+  const addr = extractAddress(clean(`${subject}\n${source}`));
+  if (!addr) return links[links.length - 1] ?? links[0] ?? null;
+
+  const hay = source.toLowerCase();
+  const street = addr.split(',')[0]?.trim().toLowerCase() ?? '';
+  const zipM = addr.match(/\b(\d{5})\b/);
+  const zip = zipM?.[1] ?? '';
+  let anchor = -1;
+  if (street.length >= 8) anchor = hay.indexOf(street);
+  if (anchor < 0 && zip) anchor = hay.indexOf(zip);
+  if (anchor < 0) {
+    const full = clean(addr).toLowerCase().replace(/\s+/g, ' ');
+    if (full.length >= 12) anchor = hay.indexOf(full);
+  }
+  if (anchor < 0) return links[links.length - 1] ?? links[0] ?? null;
+
+  let best = links[0]!;
+  let bestDist = Infinity;
+  for (const l of links) {
+    const d = Math.abs(l.index - anchor);
+    if (d < bestDist) {
+      bestDist = d;
+      best = l;
+    }
+  }
+  return best;
+}
+
+/** Home (sale) Zestimate lines — skip rent-Zestimate matches. Used to correct a mis-parsed list price. */
+function extractHomeZestimateValue(text: string): number | null {
+  const t = String(text || '');
+  for (const m of t.matchAll(/\bzestimate[®]?\s*[:.]?\s*\$([\d,.]+)\s*([KkMm])?\b/gi)) {
+    const start = m.index ?? 0;
+    const ctx = t.slice(Math.max(0, start - 48), Math.min(t.length, start + 96)).toLowerCase();
+    if (/\brent\b/.test(ctx)) continue;
+    const v = parseDollarAmount(m as unknown as RegExpMatchArray);
+    if (v >= 40_000) return v;
+  }
+  return null;
+}
+
 function extractCandidateUrls(text: string): string[] {
   return Array.from(new Set(extractCandidateLinks(text).map((l) => l.normalized)));
 }
@@ -421,7 +466,14 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
   if (!address) return null;
   const { city, state, zip } = splitAddress(address);
 
-  const price = extractLikelyListingPrice(normalized, address);
+  let price = extractLikelyListingPrice(normalized, address);
+  const homeZest = extractHomeZestimateValue(normalized);
+  if (homeZest && price > 0) {
+    const ratio = price / homeZest;
+    if (ratio < 0.15 || ratio > 6) price = homeZest;
+  } else if (homeZest && (!price || price < 25_000)) {
+    price = homeZest;
+  }
   const priceCut = parseDollarAmount(
     normalized.match(/price cut[:\s]*\$([\d,.]+)\s*([KkMm])?/i) ||
       normalized.match(/reduced\s+by\s+\$([\d,.]+)\s*([KkMm])?/i) ||
@@ -483,6 +535,16 @@ function extractPrimaryChunk(rawText: string): string {
   return source.slice(Math.max(0, link.index - 600), Math.min(source.length, link.index + 400));
 }
 
+/** Wider slice around the homedetails link nearest the address (see findBestHomedetailsLink). */
+function extractPrimaryChunkAnchored(primarySection: string, subject: string): string {
+  const source = String(primarySection || '');
+  const link = findBestHomedetailsLink(source, subject);
+  if (!link) return extractPrimaryChunk(source);
+  const before = 900;
+  const after = 1600;
+  return source.slice(Math.max(0, link.index - before), Math.min(source.length, link.index + after));
+}
+
 export interface ZillowParseClassification {
   notificationType: string;
   eventClass: 'primary' | 'secondary' | 'ignore';
@@ -530,7 +592,7 @@ export function parseZillowMessage(message: RawMessage): ParsedZillowEmail | nul
   const subject = clean(message.subject || '');
   const rawBody = [message.textBody, message.htmlBody, message.snippet].filter(Boolean).join('\n');
   const primarySection = extractPrimarySection(rawBody);
-  const primaryChunk = extractPrimaryChunk(primarySection);
+  const primaryChunk = extractPrimaryChunkAnchored(primarySection, subject);
 
   const buildPayload = (listing: BuildListingResult): ZillowIngestionPayload => ({
     zpid: listing.zpid,

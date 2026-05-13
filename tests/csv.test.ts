@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeCsvCell, rowsToCsv } from '@/lib/csv';
+import { escapeCsvCell, parseCsv, rowsToCsv } from '@/lib/csv';
 
 describe('csv', () => {
   it('escapeCsvCell leaves simple values unchanged', () => {
@@ -14,5 +14,27 @@ describe('csv', () => {
 
   it('rowsToCsv joins rows with CRLF', () => {
     expect(rowsToCsv([['a', 'b'], ['1', '2']])).toBe('a,b\r\n1,2');
+  });
+
+  it('parseCsv splits simple rows', () => {
+    expect(parseCsv('a,b\nc,d')).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+  });
+
+  it('parseCsv handles CRLF and quoted commas', () => {
+    expect(parseCsv('a,"b,c"\r\n1,2')).toEqual([
+      ['a', 'b,c'],
+      ['1', '2'],
+    ]);
+  });
+
+  it('parseCsv handles doubled quotes and newlines inside quotes', () => {
+    expect(parseCsv('x,"line1\nline2""q"')).toEqual([['x', 'line1\nline2"q']]);
+  });
+
+  it('parseCsv drops trailing all-empty row after final newline', () => {
+    expect(parseCsv('a,b\n')).toEqual([['a', 'b']]);
   });
 });

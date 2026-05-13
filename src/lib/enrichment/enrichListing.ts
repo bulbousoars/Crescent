@@ -5,6 +5,7 @@ import { fetchCountyFromCensusGeocoder } from './censusGeocoder';
 import { fetchHudCountyFmr } from './hudFmr';
 import { incomeToNeighborhoodContextScore } from './neighborhoodContext';
 import { fetchRentcastLongTermRent } from './rentcastRent';
+import { runThresholdNotifications } from '../notifications/thresholdAlerts';
 
 export async function enrichListingById(prisma: PrismaClient, listingId: string): Promise<{ ok: boolean; error?: string }> {
   try {
@@ -46,16 +47,16 @@ export async function enrichListingById(prisma: PrismaClient, listingId: string)
       },
     });
 
-    await prisma.$transaction([
-      prisma.listing.update({
+    const analysisRow = await prisma.$transaction(async (tx) => {
+      await tx.listing.update({
         where: { id: listingId },
         data: {
           censusMedianHouseholdIncome: income,
           neighborhoodContextScore: contextScore,
           enrichmentFetchedAt: new Date(),
         },
-      }),
-      prisma.listingAnalysis.create({
+      });
+      return tx.listingAnalysis.create({
         data: {
           listingId,
           assumptionSetId: assumptions.id,
@@ -83,8 +84,12 @@ export async function enrichListingById(prisma: PrismaClient, listingId: string)
           criteriaPass: computed.tag === 'CASH FLOW',
           criteriaFailReasons: '',
         },
-      }),
-    ]);
+      });
+    });
+
+    await runThresholdNotifications(prisma, listingId, analysisRow.id).catch((err) => {
+      console.warn('[notifications]', err instanceof Error ? err.message : err);
+    });
 
     return { ok: true };
   } catch (e) {

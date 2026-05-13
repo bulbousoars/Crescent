@@ -22,7 +22,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
   const { provider: providerId } = await params;
-  if (providerId !== 'gmail') {
+  if (providerId !== 'gmail' && providerId !== 'microsoft') {
     return NextResponse.json({ ok: false, error: `provider ${providerId} not supported yet` }, { status: 400 });
   }
 

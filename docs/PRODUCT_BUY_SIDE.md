@@ -62,7 +62,7 @@ Everything supports **one user / one household** making a decision; no obligatio
 - **Locally stored, user-maintained only** — no pre-seeded rows.
 - Fields (illustrative): name; role tags (lender, attorney, PM, contractor, inspector); phone; email; notes; optional **last used on deal X** link.
 - **Search/filter** by tag; click-to-copy contact details; optional association to a deal (“this lender quoted on 123 Main”).
-- **CSV import** is optional later.
+- **CSV import / export** on `/partners`: export matches import headers (`name`, `role`, `company`, `email`, `phone`, `notes`, `linkedAddress`); listing links resolve when `linkedAddress` exactly matches a saved listing address.
 - Treat as **PII**: export and delete-all paths; no cross-user sharing unless multi-tenant org features are added later.
 
 ---
@@ -96,4 +96,4 @@ Crescent already exposes acquisition **Insights** dashboards. Use these **report
 | Date | Change |
 |------|--------|
 | 2026-05-12 | Initial buy-side spec from product conversation (BiggerPockets / Propertybase selective borrow). |
-| 2026-05-12 | First implementation pass in Crescent: what-if lab, market context model, partners UI/API, capital-by-stage insights. |
+| 2026-05-12 | Partners: document CSV import/export on `/partners` (same columns as export; `linkedAddress` exact match). |

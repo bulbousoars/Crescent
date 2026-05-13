@@ -15,6 +15,7 @@ import {
   Search,
   Tag,
   Trash2,
+  Upload,
   UserPlus,
   X,
 } from 'lucide-react';
@@ -58,6 +59,7 @@ export function PartnersDirectory() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   function showToast(message: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -132,6 +134,36 @@ export function PartnersDirectory() {
   function copyField(text: string, label: string) {
     void navigator.clipboard.writeText(text);
     showToast(`${label} copied`);
+  }
+
+  async function onImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      showToast('Could not read file');
+      return;
+    }
+    const res = await fetch('/api/partners/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csv: text }),
+    });
+    const j = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      created?: number;
+      warnings?: string[];
+    };
+    if (!res.ok) {
+      showToast(j.error ?? 'Import failed');
+      return;
+    }
+    const w = j.warnings?.length ? ` (${j.warnings.length} note${j.warnings.length === 1 ? '' : 's'})` : '';
+    showToast(`Imported ${j.created ?? 0} contact${(j.created ?? 0) === 1 ? '' : 's'}${w}`);
+    await load();
   }
 
   async function deleteAll() {
@@ -221,6 +253,21 @@ export function PartnersDirectory() {
             <span className="partners-filter-hint">Server filter · updates shortly after you stop typing</span>
           </label>
           <div className="partners-filters-actions">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: 'none' }}
+              onChange={(e) => void onImportFileChange(e)}
+            />
+            <button
+              type="button"
+              className="button"
+              onClick={() => importInputRef.current?.click()}
+            >
+              <Upload size={16} />
+              Import CSV
+            </button>
             <a className="button" href="/api/partners/export">
               <Download size={16} />
               Export CSV

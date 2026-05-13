@@ -154,6 +154,42 @@ https://www.zillow.com/homedetails/456-Oak-Smallville-OH-43125/11111_zpid/`;
     expect(result!.payloads[0].price).toBe(153_300);
   });
 
+  it('anchors the listing to the homedetails URL nearest the address, not the first URL in the email', () => {
+    const junk = 'https://www.zillow.com/mortgages/?utm_source=email';
+    const real = 'https://www.zillow.com/homedetails/999-Luxury-Ln-Big-City-CA-90210/77777_zpid/';
+    const body = `New listing
+
+${junk}
+Some promo text with $40,000 down payment options.
+
+999 Luxury Ln, Big City, CA 90210
+Zestimate®: $949,000
+4 bd | 3 ba | 2,800 sqft
+
+${real}
+
+Privacy policy`;
+
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    expect(result).not.toBeNull();
+    expect(result!.payloads[0].zpid).toBe('77777');
+    expect(result!.payloads[0].price).toBe(949_000);
+  });
+
+  it('uses home Zestimate when parsed list price is wildly inconsistent', () => {
+    const body = `New listing
+
+555 Fix St, Repairville, TX 75001
+Zestimate®: $949,000
+Misleading line $40,000 near junk link
+3 bd | 2 ba | 2000 sqft
+https://www.zillow.com/homedetails/555-Fix-St-Repairville-TX-75001/88888_zpid/`;
+
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    expect(result).not.toBeNull();
+    expect(result!.payloads[0].price).toBe(949_000);
+  });
+
   it('does not match URL-token gibberish like rtoken=17c54ba6 as 4 baths', () => {
     // Verify the regex hardening: the n8n parser was bumped to require non-word prefix
     // for spec extraction so URL tokens don't pollute beds/baths.
