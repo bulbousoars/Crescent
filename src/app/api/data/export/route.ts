@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { chooseAssumptionProfile } from '@/lib/assumptionProfiles';
-import { calculateListingAnalysis } from '@/lib/analysis';
 import { defaultAssumptions } from '@/lib/defaultAssumptions';
 import { rowsToCsv } from '@/lib/csv';
 import { buildListingWhere, normalizeListingFilters, type RawListingFilters } from '@/lib/listingFilters';
@@ -11,6 +10,7 @@ import {
   normalizeListingSort,
   sortListingsByComputedColumn,
 } from '@/lib/listingSort';
+import { computeListingRowAnalysis } from '@/lib/listingRowAnalysis';
 import { prisma } from '@/lib/prisma';
 
 const HEADERS = [
@@ -36,8 +36,21 @@ const HEADERS = [
   'Est. P&I (mo)',
   'Est. property tax (mo)',
   'Est. insurance (mo)',
+  'UW rent used',
+  'HUD FMR',
+  'Rentcast est.',
+  'UW P&I (mo)',
+  'UW property tax (mo)',
+  'UW insurance (mo)',
+  'UW total expenses (mo)',
   'Monthly cash flow',
   'Cap rate',
+  'Cash-on-cash',
+  'NOI',
+  'Cash required',
+  '5-year equity',
+  'DSCR',
+  'Tag',
   'Zillow URL',
   'Listing id',
 ] as const;
@@ -69,6 +82,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         pipeline: true,
+        marketContext: true,
         analysis: { orderBy: { computedAt: 'desc' }, take: 1 },
       },
       orderBy,
@@ -99,15 +113,12 @@ export async function GET(request: NextRequest) {
   for (const listing of listings) {
     const snapshot = listing.analysis[0];
     const rowAnalysis = profile
-      ? calculateListingAnalysis({
-          listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
-          assumptions: profile,
-          rent: {
-            hudFmrSelected: snapshot?.hudFmrSelected ?? 0,
-            hudMetro: snapshot?.hudMetro ?? '',
-            rentcastEst: snapshot?.rentcastEst ?? 0,
-          },
-        })
+      ? computeListingRowAnalysis(
+          { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
+          snapshot,
+          profile,
+          listing.marketContext,
+        )
       : null;
 
     const status = listing.pipeline?.status ?? 'NEW';
@@ -134,8 +145,21 @@ export async function GET(request: NextRequest) {
       listing.estimatedPAndIMonthly ?? '',
       listing.estimatedPropertyTaxMonthly ?? '',
       listing.estimatedInsuranceMonthly ?? '',
-      rowAnalysis ? rowAnalysis.monthlyCf : '',
-      rowAnalysis ? rowAnalysis.capRate : '',
+      rowAnalysis?.rentUsed ?? '',
+      snapshot?.hudFmrSelected ?? '',
+      snapshot?.rentcastEst ?? '',
+      rowAnalysis?.pAndI ?? '',
+      rowAnalysis?.propertyTaxMonthly ?? '',
+      rowAnalysis?.insuranceMonthly ?? '',
+      rowAnalysis?.totalExpensesMonthly ?? '',
+      rowAnalysis?.monthlyCf ?? '',
+      rowAnalysis?.capRate ?? '',
+      rowAnalysis?.cashOnCash ?? '',
+      rowAnalysis?.noi ?? '',
+      rowAnalysis?.cashRequired ?? '',
+      rowAnalysis?.equity5yr ?? '',
+      rowAnalysis?.dscr ?? '',
+      rowAnalysis?.tag ?? '',
       listing.listingUrl,
       listing.id,
     ]);

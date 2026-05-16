@@ -632,7 +632,7 @@ th {
 
 /* All Listings (Data tab): horizontal scroll is OK; prioritize spacing + no overlap */
 .listings-table table {
-  min-width: 2600px;
+  min-width: 4200px;
   table-layout: auto;
   width: 100%;
 }

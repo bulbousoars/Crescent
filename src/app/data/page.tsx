@@ -1,7 +1,10 @@
 import type { Prisma } from '@prisma/client';
 import { chooseAssumptionProfile } from '@/lib/assumptionProfiles';
-import { calculateListingAnalysis } from '@/lib/analysis';
 import { defaultAssumptions } from '@/lib/defaultAssumptions';
+import {
+  computeListingRowAnalysis,
+  formatListingUnderwritingDisplay,
+} from '@/lib/listingRowAnalysis';
 import { buildListingWhere, normalizeListingFilters, type RawListingFilters } from '@/lib/listingFilters';
 import {
   buildListingOrderBy,
@@ -10,7 +13,7 @@ import {
   serializeListingDataQuery,
   sortListingsByComputedColumn,
 } from '@/lib/listingSort';
-import { compactDate, currency, percent } from '@/lib/format';
+import { compactDate } from '@/lib/format';
 import { prisma } from '@/lib/prisma';
 import { ListingsFilterPanel } from '@/components/ListingsFilterPanel';
 import { EditableListingRow } from '@/components/EditableListingRow';
@@ -66,6 +69,7 @@ export default async function DataPage({
       where,
       include: {
         pipeline: true,
+        marketContext: true,
         analysis: { orderBy: { computedAt: 'desc' }, take: 1 },
       },
       orderBy,
@@ -136,16 +140,14 @@ export default async function DataPage({
             {listings.map((listing) => {
               const snapshot = listing.analysis[0];
               const rowAnalysis = profile
-                ? calculateListingAnalysis({
-                    listing: { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
-                    assumptions: profile,
-                    rent: {
-                      hudFmrSelected: snapshot?.hudFmrSelected ?? 0,
-                      hudMetro: snapshot?.hudMetro ?? '',
-                      rentcastEst: snapshot?.rentcastEst ?? 0,
-                    },
-                  })
+                ? computeListingRowAnalysis(
+                    { price: listing.price, state: listing.state, hoaMonthly: listing.hoaMonthly },
+                    snapshot,
+                    profile,
+                    listing.marketContext,
+                  )
                 : null;
+              const underwriting = formatListingUnderwritingDisplay(rowAnalysis, snapshot);
               return (
                 <EditableListingRow
                   key={listing.id}
@@ -174,8 +176,7 @@ export default async function DataPage({
                     estimatedPropertyTaxMonthly: listing.estimatedPropertyTaxMonthly,
                     estimatedInsuranceMonthly: listing.estimatedInsuranceMonthly,
                   }}
-                  monthlyCfDisplay={rowAnalysis ? currency(rowAnalysis.monthlyCf) : 'Pending'}
-                  capRateDisplay={rowAnalysis ? percent(rowAnalysis.capRate) : 'Pending'}
+                  underwriting={underwriting}
                   ingestedAtDisplay={compactDate(listing.ingestedAt)}
                   detailHref={withParams(params, { listingId: listing.id, tab: 'overview' })}
                 />

@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
-import { calculateListingAnalysis } from '@/lib/analysis';
 import type { AnalysisInput } from '@/lib/analysis';
+import { computeListingRowAnalysis } from '@/lib/listingRowAnalysis';
 
 type AssumptionsInput = AnalysisInput['assumptions'];
 
@@ -26,14 +26,52 @@ export const LISTING_SORT_COLUMNS = [
   'estimatedPAndIMonthly',
   'estimatedPropertyTaxMonthly',
   'estimatedInsuranceMonthly',
+  'rentUsed',
+  'hudFmrSelected',
+  'rentcastEst',
+  'uwPAndI',
+  'uwPropertyTax',
+  'uwInsurance',
+  'totalExpensesMonthly',
   'monthlyCf',
   'capRate',
+  'cashOnCash',
+  'noi',
+  'cashRequired',
+  'equity5yr',
+  'dscr',
+  'tag',
   'listingUrl',
 ] as const;
 
 export type ListingSortColumn = (typeof LISTING_SORT_COLUMNS)[number];
 
 const COLUMN_SET = new Set<string>(LISTING_SORT_COLUMNS);
+
+export const COMPUTED_SORT_COLUMNS = [
+  'rentUsed',
+  'uwPAndI',
+  'uwPropertyTax',
+  'uwInsurance',
+  'totalExpensesMonthly',
+  'monthlyCf',
+  'capRate',
+  'cashOnCash',
+  'noi',
+  'cashRequired',
+  'equity5yr',
+  'dscr',
+  'tag',
+] as const;
+
+export type ComputedSortColumn = (typeof COMPUTED_SORT_COLUMNS)[number];
+
+const SNAPSHOT_SORT_COLUMNS = ['hudFmrSelected', 'rentcastEst'] as const;
+type SnapshotSortColumn = (typeof SNAPSHOT_SORT_COLUMNS)[number];
+
+export type InMemorySortColumn = ComputedSortColumn | SnapshotSortColumn;
+
+const IN_MEMORY_SORT_SET = new Set<string>([...COMPUTED_SORT_COLUMNS, ...SNAPSHOT_SORT_COLUMNS]);
 
 export function isListingSortColumn(value: string): value is ListingSortColumn {
   return COLUMN_SET.has(value);
@@ -49,8 +87,8 @@ export function normalizeListingSort(raw: { sort?: string; sortDir?: string }): 
   return { column, dir };
 }
 
-export function isComputedSortColumn(column: ListingSortColumn | null): column is 'monthlyCf' | 'capRate' {
-  return column === 'monthlyCf' || column === 'capRate';
+export function isComputedSortColumn(column: ListingSortColumn | null): column is InMemorySortColumn {
+  return column != null && IN_MEMORY_SORT_SET.has(column);
 }
 
 /** DB-only order; computed columns fall back until in-memory sort is applied. */
@@ -100,45 +138,104 @@ function compareNullableNumbers(a: number | null, b: number | null, dir: 'asc' |
   return dir === 'asc' ? cmp : -cmp;
 }
 
+function compareStrings(a: string, b: string, dir: 'asc' | 'desc'): number {
+  const cmp = a.localeCompare(b);
+  return dir === 'asc' ? cmp : -cmp;
+}
+
 type ListingRowForComputedSort = {
   id: string;
   price: number;
   state: string;
   hoaMonthly: number;
   analysis: { hudFmrSelected: number; hudMetro: string; rentcastEst: number }[];
+  marketContext?: {
+    propertyTaxMonthlyOverride: number | null;
+    insuranceMonthlyOverride: number | null;
+  } | null;
 };
+
+function sortKeyForComputedColumn(
+  column: ComputedSortColumn,
+  rowAnalysis: NonNullable<ReturnType<typeof computeListingRowAnalysis>>,
+): number | string {
+  switch (column) {
+    case 'rentUsed':
+      return rowAnalysis.rentUsed;
+    case 'uwPAndI':
+      return rowAnalysis.pAndI;
+    case 'uwPropertyTax':
+      return rowAnalysis.propertyTaxMonthly;
+    case 'uwInsurance':
+      return rowAnalysis.insuranceMonthly;
+    case 'totalExpensesMonthly':
+      return rowAnalysis.totalExpensesMonthly;
+    case 'monthlyCf':
+      return rowAnalysis.monthlyCf;
+    case 'capRate':
+      return rowAnalysis.capRate;
+    case 'cashOnCash':
+      return rowAnalysis.cashOnCash;
+    case 'noi':
+      return rowAnalysis.noi;
+    case 'cashRequired':
+      return rowAnalysis.cashRequired;
+    case 'equity5yr':
+      return rowAnalysis.equity5yr;
+    case 'dscr':
+      return rowAnalysis.dscr ?? -1;
+    case 'tag':
+      return rowAnalysis.tag;
+    default:
+      return 0;
+  }
+}
+
+function snapshotSortValue(column: SnapshotSortColumn, snapshot: ListingRowForComputedSort['analysis'][0]) {
+  if (!snapshot) return null;
+  return column === 'hudFmrSelected' ? snapshot.hudFmrSelected : snapshot.rentcastEst;
+}
 
 export function sortListingsByComputedColumn<T extends ListingRowForComputedSort>(
   listings: T[],
-  column: 'monthlyCf' | 'capRate',
+  column: InMemorySortColumn,
   dir: 'asc' | 'desc',
   profile: AssumptionsInput | null,
 ): T[] {
+  if (column === 'hudFmrSelected' || column === 'rentcastEst') {
+    const decorated = listings.map((l) => ({
+      row: l,
+      key: snapshotSortValue(column, l.analysis[0]),
+    }));
+    decorated.sort((a, b) => compareNullableNumbers(a.key, b.key, dir));
+    return decorated.map((d) => d.row);
+  }
+
   if (!profile) return [...listings];
 
   const decorated = listings.map((l) => {
     const snapshot = l.analysis[0];
-    const rowAnalysis = calculateListingAnalysis({
-      listing: { price: l.price, state: l.state, hoaMonthly: l.hoaMonthly },
-      assumptions: profile,
-      rent: {
-        hudFmrSelected: snapshot?.hudFmrSelected ?? 0,
-        hudMetro: snapshot?.hudMetro ?? '',
-        rentcastEst: snapshot?.rentcastEst ?? 0,
-      },
-    });
+    const rowAnalysis = computeListingRowAnalysis(
+      { price: l.price, state: l.state, hoaMonthly: l.hoaMonthly },
+      snapshot,
+      profile,
+      l.marketContext,
+    );
     return {
       row: l,
-      monthlyCf: rowAnalysis.monthlyCf,
-      capRate: rowAnalysis.capRate,
+      key: rowAnalysis ? sortKeyForComputedColumn(column, rowAnalysis) : null,
     };
   });
 
   decorated.sort((a, b) => {
-    if (column === 'monthlyCf') {
-      return compareNullableNumbers(a.monthlyCf, b.monthlyCf, dir);
+    if (column === 'tag') {
+      return compareStrings(String(a.key ?? ''), String(b.key ?? ''), dir);
     }
-    return compareNullableNumbers(a.capRate, b.capRate, dir);
+    return compareNullableNumbers(
+      typeof a.key === 'number' ? a.key : null,
+      typeof b.key === 'number' ? b.key : null,
+      dir,
+    );
   });
 
   return decorated.map((d) => d.row);

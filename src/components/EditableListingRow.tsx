@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ExternalLink, Pencil, Save, X } from 'lucide-react';
+import type { ListingUnderwritingDisplay } from '@/lib/listingRowAnalysis';
 
 type ListingRow = {
   id: string;
@@ -33,8 +34,7 @@ type ListingRow = {
 
 type Props = {
   listing: ListingRow;
-  monthlyCfDisplay: string;
-  capRateDisplay: string;
+  underwriting: ListingUnderwritingDisplay | null;
   ingestedAtDisplay: string;
   detailHref: string;
 };
@@ -61,6 +61,12 @@ function dashInt(n: number | null | undefined) {
   return String(n);
 }
 
+function tagClass(tag: string) {
+  if (tag === 'CASH FLOW') return 'tag good';
+  if (tag === 'EQUITY PLAY') return 'tag warn';
+  return 'tag bad';
+}
+
 function ZillowEmailCells({ listing }: { listing: ListingRow }) {
   return (
     <>
@@ -85,7 +91,40 @@ function ZillowEmailCells({ listing }: { listing: ListingRow }) {
   );
 }
 
-export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, ingestedAtDisplay, detailHref }: Props) {
+function UnderwritingCells({ underwriting }: { underwriting: ListingUnderwritingDisplay | null }) {
+  if (!underwriting) {
+    return (
+      <>
+        {Array.from({ length: 15 }, (_, i) => (
+          <td key={i}>Pending</td>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      <td title={underwriting.rentTitle}>{underwriting.rentUsed}</td>
+      <td>{underwriting.hudFmr}</td>
+      <td>{underwriting.rentcast}</td>
+      <td>{underwriting.pAndI}</td>
+      <td>{underwriting.propertyTaxMonthly}</td>
+      <td>{underwriting.insuranceMonthly}</td>
+      <td>{underwriting.totalExpensesMonthly}</td>
+      <td>{underwriting.monthlyCf}</td>
+      <td>{underwriting.capRate}</td>
+      <td>{underwriting.cashOnCash}</td>
+      <td>{underwriting.noi}</td>
+      <td>{underwriting.cashRequired}</td>
+      <td>{underwriting.equity5yr}</td>
+      <td>{underwriting.dscr}</td>
+      <td>
+        <span className={tagClass(underwriting.tag)}>{underwriting.tag}</span>
+      </td>
+    </>
+  );
+}
+
+export function EditableListingRow({ listing, underwriting, ingestedAtDisplay, detailHref }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<EditableField, string>>({
@@ -217,8 +256,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
           <input className="editable-input" type="number" min={0} step="100" value={draft.price} onChange={(e) => setField('price', e.target.value)} />
         </td>
         {emailMetricsEdit}
-        <td>{monthlyCfDisplay}</td>
-        <td>{capRateDisplay}</td>
+        <UnderwritingCells underwriting={underwriting} />
         {zillowCell}
         <td>
           <div className="row-actions">
@@ -244,8 +282,7 @@ export function EditableListingRow({ listing, monthlyCfDisplay, capRateDisplay, 
       </td>
       <td>{currency(listing.price)}</td>
       {emailMetricsView}
-      <td>{monthlyCfDisplay}</td>
-      <td>{capRateDisplay}</td>
+      <UnderwritingCells underwriting={underwriting} />
       {zillowCell}
       <td>
         <div className="row-actions">
