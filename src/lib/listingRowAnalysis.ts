@@ -59,6 +59,7 @@ export type ListingUnderwritingDisplay = {
   capRate: string;
   cashOnCash: string;
   noi: string;
+  downPayment: string;
   cashRequired: string;
   equity5yr: string;
   dscr: string;
@@ -85,6 +86,7 @@ export function formatListingUnderwritingDisplay(
     capRate: percent(result.capRate),
     cashOnCash: percent(result.cashOnCash),
     noi: currency(result.noi),
+    downPayment: currency(result.downPayment),
     cashRequired: currency(result.cashRequired),
     equity5yr: currency(result.equity5yr),
     dscr: result.dscr != null ? `${result.dscr.toFixed(2)}×` : '—',

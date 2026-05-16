@@ -37,6 +37,7 @@ export const LISTING_SORT_COLUMNS = [
   'capRate',
   'cashOnCash',
   'noi',
+  'downPayment',
   'cashRequired',
   'equity5yr',
   'dscr',
@@ -58,6 +59,7 @@ export const COMPUTED_SORT_COLUMNS = [
   'capRate',
   'cashOnCash',
   'noi',
+  'downPayment',
   'cashRequired',
   'equity5yr',
   'dscr',
@@ -178,6 +180,8 @@ function sortKeyForComputedColumn(
       return rowAnalysis.cashOnCash;
     case 'noi':
       return rowAnalysis.noi;
+    case 'downPayment':
+      return rowAnalysis.downPayment;
     case 'cashRequired':
       return rowAnalysis.cashRequired;
     case 'equity5yr':
@@ -260,8 +264,16 @@ export function dataListingHref(
   params: Record<string, string | undefined>,
   updates: Record<string, string | undefined>,
 ): string {
+  return listingFilterHref('/data', params, updates);
+}
+
+export function listingFilterHref(
+  basePath: string,
+  params: Record<string, string | undefined>,
+  updates: Record<string, string | undefined>,
+): string {
   const qs = serializeListingDataQuery(params, updates);
-  return qs ? `/data?${qs}` : '/data';
+  return qs ? `${basePath}?${qs}` : basePath;
 }
 
 export function hrefForSortedColumn(

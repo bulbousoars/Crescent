@@ -30,6 +30,8 @@ describe('calculateListingAnalysis', () => {
     expect(result.rentUsed).toBe(2200);
     expect(result.rentSource).toBe('HUD FMR (Philadelphia-Camden-Wilmington)');
     expect(result.monthlyCf).toBeGreaterThan(0);
+    expect(result.downPayment).toBe(36000);
+    expect(result.closingCosts).toBe(5400);
     expect(result.cashRequired).toBe(41400);
     expect(result.tag).toBe('CASH FLOW');
   });

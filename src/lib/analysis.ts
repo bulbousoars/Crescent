@@ -50,6 +50,10 @@ export type AnalysisResult = {
   noi: number;
   capRate: number;
   cashOnCash: number;
+  /** List price × profile down-payment %. */
+  downPayment: number;
+  /** List price × profile closing-cost %. */
+  closingCosts: number;
   cashRequired: number;
   equity5yr: number;
   tag: 'CASH FLOW' | 'EQUITY PLAY' | 'PASS';
@@ -131,7 +135,9 @@ export function calculateListingAnalysis(input: AnalysisInput): AnalysisResult {
     insuranceMonthly -
     (listing.hoaMonthly || 0) -
     maintenanceMonthly) * 12;
-  const cashRequired = price * assumptions.downPaymentPct + price * assumptions.closingCostPct;
+  const downPayment = round(price * assumptions.downPaymentPct);
+  const closingCosts = round(price * assumptions.closingCostPct);
+  const cashRequired = downPayment + closingCosts;
   const capRate = price > 0 ? noi / price : 0;
   const cashOnCash = cashRequired > 0 ? annualCf / cashRequired : 0;
   const afterTaxCf = monthlyCf * (1 - stateTaxRate);
@@ -164,7 +170,9 @@ export function calculateListingAnalysis(input: AnalysisInput): AnalysisResult {
     noi: round(noi),
     capRate,
     cashOnCash,
-    cashRequired: round(cashRequired),
+    downPayment,
+    closingCosts,
+    cashRequired,
     equity5yr: round(equity5yr),
     tag,
     dscr,

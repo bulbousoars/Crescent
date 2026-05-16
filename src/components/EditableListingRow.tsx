@@ -95,7 +95,7 @@ function UnderwritingCells({ underwriting }: { underwriting: ListingUnderwriting
   if (!underwriting) {
     return (
       <>
-        {Array.from({ length: 15 }, (_, i) => (
+        {Array.from({ length: 16 }, (_, i) => (
           <td key={i}>Pending</td>
         ))}
       </>
@@ -114,6 +114,7 @@ function UnderwritingCells({ underwriting }: { underwriting: ListingUnderwriting
       <td>{underwriting.capRate}</td>
       <td>{underwriting.cashOnCash}</td>
       <td>{underwriting.noi}</td>
+      <td>{underwriting.downPayment}</td>
       <td>{underwriting.cashRequired}</td>
       <td>{underwriting.equity5yr}</td>
       <td>{underwriting.dscr}</td>

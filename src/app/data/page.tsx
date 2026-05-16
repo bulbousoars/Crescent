@@ -117,11 +117,11 @@ export default async function DataPage({
           <a className="button primary" href={csvHref} download>
             Export CSV
           </a>
-          <span className="muted">{listings.length} shown</span>
         </div>
       </div>
 
       <ListingsFilterPanel
+        variant="data"
         action="/data"
         raw={params}
         filters={filters}
@@ -131,6 +131,7 @@ export default async function DataPage({
         properties={allProperties}
         assumptions={assumptions}
         selectedAssumptionId={profile?.id}
+        resultCount={listings.length}
       />
 
       <div className="table-wrap listings-table">
