@@ -494,268 +494,113 @@ th {
   grid-column: 1 / -1;
 }
 
-/* Listing Data: modal-style filters (inspired by Airbnb filter sheet) */
+/* Listing Data: compact filter toolbar */
 .filter-panel--data {
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-}
-
-.filter-panel--data .filter-panel__header {
-  border-bottom: 1px solid var(--line);
-  padding: 20px 24px 16px;
-  text-align: center;
-}
-
-.filter-panel--data .filter-panel__title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.filter-panel--data .filter-chips {
-  border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 24px;
-}
-
-.filter-panel--data .filter-chip {
-  background: var(--surface);
-  border-radius: 8px;
-  font-size: 13px;
-  padding: 6px 12px;
-}
-
-.filter-panel__body {
-  display: flex;
-  flex-direction: column;
-}
-
-.filter-block {
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  min-width: 0;
-  padding: 24px;
-}
-
-.filter-block--group {
-  gap: 20px;
-}
-
-.filter-block__title {
-  color: var(--ink);
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.filter-block__hint {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.45;
-  margin: -4px 0 0;
-}
-
-.filter-subblock {
-  display: grid;
-  gap: 10px;
-}
-
-.filter-subblock__title {
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.filter-price-inputs {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr;
-}
-
-.filter-price-field {
-  display: grid;
-  gap: 8px;
-}
-
-.filter-price-field__label {
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.filter-price-field__input,
-.filter-select {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  color: var(--ink);
-  font-size: 15px;
-  min-height: 48px;
   padding: 12px 14px;
+}
+
+.filter-compact {
+  display: grid;
+  gap: 8px;
+}
+
+.filter-compact__row {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.filter-compact__row--secondary {
+  align-items: center;
+}
+
+.filter-compact__field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.filter-compact__field--wide {
+  flex: 1 1 280px;
+  min-width: min(100%, 280px);
+}
+
+.filter-compact__label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.filter-compact__input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 5px 8px;
   width: 100%;
 }
 
-.filter-price-field__input:focus,
-.filter-select:focus {
-  border-color: var(--ink);
+.filter-compact__field--narrow .filter-compact__input {
+  width: 4.75rem;
+}
+
+.filter-compact__field:not(.filter-compact__field--wide):not(.filter-compact__field--narrow) .filter-compact__input {
+  width: 6.5rem;
+}
+
+.filter-compact__input:focus {
+  border-color: var(--accent);
   outline: none;
 }
 
-.filter-pills {
+.filter-compact__actions {
+  align-items: end;
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.filter-compact__btn {
+  font-size: 13px;
+  min-height: 32px;
+  padding: 5px 10px;
+}
+
+.filter-compact__count {
+  flex-shrink: 0;
+  font-size: 12px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.filter-chips--compact {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
-.filter-pill {
-  align-items: center;
-  background: var(--panel-soft);
-  border: 1px solid transparent;
-  border-radius: 999px;
-  color: var(--ink);
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 14px;
-  font-weight: 500;
-  justify-content: center;
-  min-height: 40px;
-  min-width: 48px;
-  padding: 8px 16px;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  user-select: none;
-}
-
-.filter-pill__input {
-  clip: rect(0, 0, 0, 0);
-  position: absolute;
-}
-
-.filter-pill:hover {
-  background: var(--line);
-}
-
-.filter-pill--on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
-}
-
-.filter-pill--on:hover {
-  background: var(--ink);
-  color: #fff;
-}
-
-.filter-cards {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.filter-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  cursor: pointer;
-  display: grid;
+.filter-panel--data .filter-chip {
+  font-size: 11px;
   gap: 4px;
-  padding: 16px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 3px 8px;
 }
 
-.filter-card__input {
-  clip: rect(0, 0, 0, 0);
-  position: absolute;
-}
-
-.filter-card__title {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.filter-card__desc {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.filter-card:hover {
-  border-color: var(--muted);
-}
-
-.filter-card--on {
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
-}
-
-.filter-panel__footer {
-  align-items: center;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  padding: 16px 24px;
-}
-
-.filter-panel__clear {
-  background: none;
-  border: 0;
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 8px 4px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.filter-panel__clear:hover {
-  color: var(--accent-strong);
-}
-
-.filter-panel__submit {
-  background: var(--accent);
-  border: none;
-  border-radius: 10px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 700;
-  min-height: 48px;
-  padding: 12px 24px;
-  transition: filter 0.15s, transform 0.1s;
-}
-
-.filter-panel__submit:hover {
-  filter: brightness(1.05);
-}
-
-.filter-panel__submit:active {
-  transform: scale(0.99);
-}
-
-@media (max-width: 700px) {
-  .filter-cards {
-    grid-template-columns: 1fr;
+@media (max-width: 900px) {
+  .filter-compact__actions {
+    margin-left: 0;
+    width: 100%;
   }
 
-  .filter-price-inputs {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-panel__footer {
-    flex-direction: column-reverse;
-    gap: 12px;
-  }
-
-  .filter-panel__submit {
+  .filter-compact__count {
+    margin-left: 0;
     width: 100%;
   }
 }

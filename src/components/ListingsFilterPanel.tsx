@@ -1,4 +1,5 @@
-import { X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Filter, X } from 'lucide-react';
 import type { ListingFilters, RawListingFilters } from '@/lib/listingFilters';
 import { listingFilterHref } from '@/lib/listingSort';
 
@@ -104,21 +105,21 @@ function buildActiveChips(
   if (filters.minBeds != null) {
     chips.push({
       key: 'minBeds',
-      label: `${filters.minBeds}+ beds`,
+      label: `${filters.minBeds}+ bd`,
       href: hrefWithout(action, base, 'minBeds'),
     });
   }
   if (filters.minBaths != null) {
     chips.push({
       key: 'minBaths',
-      label: `${filters.minBaths}+ baths`,
+      label: `${filters.minBaths}+ ba`,
       href: hrefWithout(action, base, 'minBaths'),
     });
   }
   if (filters.minSqft != null) {
     chips.push({
       key: 'minSqft',
-      label: `${filters.minSqft.toLocaleString()}+ sq ft`,
+      label: `${filters.minSqft.toLocaleString()}+ sf`,
       href: hrefWithout(action, base, 'minSqft'),
     });
   }
@@ -134,76 +135,32 @@ function HiddenSortFields({ raw }: { raw: RawListingFilters }) {
   );
 }
 
-function pillActive(raw: string | undefined, value: string) {
-  const v = raw?.trim() ?? '';
-  if (value === '') return v === '';
-  return v === value;
-}
-
-type PillOption = { value: string; label: string };
-
-function FilterPillRow({
-  name,
-  legend,
-  options,
-  rawValue,
+function CompactField({
+  label,
+  children,
+  wide,
+  narrow,
 }: {
-  name: string;
-  legend: string;
-  options: PillOption[];
-  rawValue?: string;
+  label: string;
+  children: ReactNode;
+  wide?: boolean;
+  narrow?: boolean;
 }) {
   return (
-    <div className="filter-subblock">
-      <div className="filter-subblock__title">{legend}</div>
-      <div className="filter-pills" role="radiogroup" aria-label={legend}>
-        {options.map((opt) => (
-          <label
-            key={opt.value || 'any'}
-            className={`filter-pill${pillActive(rawValue, opt.value) ? ' filter-pill--on' : ''}`}
-          >
-            <input
-              type="radio"
-              name={name}
-              value={opt.value}
-              defaultChecked={pillActive(rawValue, opt.value)}
-              className="filter-pill__input"
-            />
-            {opt.label}
-          </label>
-        ))}
-      </div>
-    </div>
+    <label
+      className={[
+        'filter-compact__field',
+        wide ? 'filter-compact__field--wide' : '',
+        narrow ? 'filter-compact__field--narrow' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <span className="filter-compact__label">{label}</span>
+      {children}
+    </label>
   );
 }
-
-const BED_OPTIONS: PillOption[] = [
-  { value: '', label: 'Any' },
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
-  { value: '4', label: '4' },
-  { value: '5', label: '5' },
-  { value: '6', label: '6+' },
-];
-
-const BATH_OPTIONS: PillOption[] = [
-  { value: '', label: 'Any' },
-  { value: '1', label: '1' },
-  { value: '1.5', label: '1.5' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
-  { value: '4', label: '4+' },
-];
-
-const SQFT_OPTIONS: PillOption[] = [
-  { value: '', label: 'Any' },
-  { value: '800', label: '800+' },
-  { value: '1000', label: '1k+' },
-  { value: '1200', label: '1.2k+' },
-  { value: '1500', label: '1.5k+' },
-  { value: '2000', label: '2k+' },
-];
 
 function WorkspaceFilterForm({
   action,
@@ -308,7 +265,7 @@ function WorkspaceFilterForm({
       </div>
       <div className="toolbar">
         <button className="button primary" type="submit">
-          Apply filters
+          <Filter size={16} /> Apply filters
         </button>
         <a className="button" href={action}>
           Clear
@@ -347,16 +304,6 @@ function DataFilterForm(props: Props) {
     ? listingFilterHref(action, { tab: hiddenFields.tab }, {})
     : action;
 
-  const statusOptions: PillOption[] = [
-    { value: '', label: 'Any' },
-    ...statuses.map((s) => ({ value: s, label: s.replaceAll('_', ' ') })),
-  ];
-
-  const showLabel =
-    resultCount != null
-      ? `Show ${resultCount.toLocaleString()} listing${resultCount === 1 ? '' : 's'}`
-      : 'Show listings';
-
   return (
     <form className="filter-panel filter-panel--data" action={action}>
       {hiddenFields
@@ -366,158 +313,146 @@ function DataFilterForm(props: Props) {
         : null}
       <HiddenSortFields raw={raw} />
 
-      <header className="filter-panel__header">
-        <h2 className="filter-panel__title">Filters</h2>
-      </header>
-
-      {chips.length > 0 ? (
-        <div className="filter-chips" aria-label="Active filters">
-          {chips.map((chip) => (
-            <a key={chip.key} className="filter-chip" href={chip.href} title={`Remove: ${chip.label}`}>
-              <span>{chip.label}</span>
-              <X size={14} aria-hidden />
-            </a>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="filter-panel__body">
-        <section className="filter-block">
-          <h3 className="filter-block__title">Price range</h3>
-          <p className="filter-block__hint">List price — underwriting columns use the profile below.</p>
-          <div className="filter-price-inputs">
-            <label className="filter-price-field">
-              <span className="filter-price-field__label">Min price</span>
-              <input
-                className="filter-price-field__input"
-                name="minPrice"
-                type="number"
-                min={0}
-                step={1000}
-                placeholder="$"
-                defaultValue={raw.minPrice ?? ''}
-              />
-            </label>
-            <label className="filter-price-field">
-              <span className="filter-price-field__label">Max price</span>
-              <input
-                className="filter-price-field__input"
-                name="maxPrice"
-                type="number"
-                min={0}
-                step={1000}
-                placeholder="$"
-                defaultValue={raw.maxPrice ?? ''}
-              />
-            </label>
-          </div>
-        </section>
-
-        <FilterPillRow
-          name="status"
-          legend="Pipeline status"
-          options={statusOptions}
-          rawValue={raw.status}
-        />
-
-        {showAssumptions ? (
-          <section className="filter-block">
-            <h3 className="filter-block__title">Underwriting profile</h3>
-            <p className="filter-block__hint">Drives rent, expenses, and cash-flow columns in the table.</p>
-            <div className="filter-cards">
-              {assumptions.length === 0 ? (
-                <label
-                  className={`filter-card${!selectedAssumptionId || selectedAssumptionId === 'default' ? ' filter-card--on' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="assumptionId"
-                    value="default"
-                    defaultChecked={!selectedAssumptionId || selectedAssumptionId === 'default'}
-                    className="filter-card__input"
-                  />
-                  <span className="filter-card__title">Default underwriting</span>
-                  <span className="filter-card__desc">Built-in assumption set</span>
-                </label>
-              ) : null}
-              {assumptions.map((item) => (
-                <label
-                  key={item.id}
-                  className={`filter-card${selectedAssumptionId === item.id ? ' filter-card--on' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="assumptionId"
-                    value={item.id}
-                    defaultChecked={selectedAssumptionId === item.id}
-                    className="filter-card__input"
-                  />
-                  <span className="filter-card__title">{item.name}</span>
-                  <span className="filter-card__desc">
-                    {item.isDefault ? 'Default profile' : 'Custom profile'}
-                  </span>
-                </label>
+      <div className="filter-compact">
+        <div className="filter-compact__row">
+          {showAssumptions ? (
+            <CompactField label="Profile">
+              <select className="filter-compact__input" name="assumptionId" defaultValue={selectedAssumptionId ?? ''}>
+                {assumptions.length === 0 ? <option value="default">Default</option> : null}
+                {assumptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                    {item.isDefault ? ' ★' : ''}
+                  </option>
+                ))}
+              </select>
+            </CompactField>
+          ) : null}
+          <CompactField label="Status">
+            <select className="filter-compact__input" name="status" defaultValue={filters.status ?? ''}>
+              <option value="">Any</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status.replaceAll('_', ' ')}
+                </option>
               ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="filter-block">
-          <h3 className="filter-block__title">Focus property</h3>
-          <select className="filter-select" name="listingId" defaultValue={filters.listingId ?? ''}>
-            <option value="">All properties</option>
-            {properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.address}, {property.city}, {property.state} {property.zip}
-              </option>
-            ))}
-          </select>
-        </section>
-
-        <section className="filter-block">
-          <h3 className="filter-block__title">Location</h3>
-          <div className="filter-price-inputs">
-            <label className="filter-price-field">
-              <span className="filter-price-field__label">State</span>
-              <select className="filter-select" name="state" defaultValue={filters.state ?? ''}>
-                <option value="">Any</option>
-                {states.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="filter-price-field">
-              <span className="filter-price-field__label">City</span>
-              <select className="filter-select" name="city" defaultValue={filters.city ?? ''}>
-                <option value="">Any</option>
-                {cities.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
-                ))}
-              </select>
-            </label>
+            </select>
+          </CompactField>
+          <CompactField label="State">
+            <select className="filter-compact__input" name="state" defaultValue={filters.state ?? ''}>
+              <option value="">Any</option>
+              {states.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </CompactField>
+          <CompactField label="City">
+            <select className="filter-compact__input" name="city" defaultValue={filters.city ?? ''}>
+              <option value="">Any</option>
+              {cities.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+          </CompactField>
+          <CompactField label="Min $" narrow>
+            <input
+              className="filter-compact__input"
+              name="minPrice"
+              type="number"
+              min={0}
+              step={1000}
+              placeholder="—"
+              defaultValue={raw.minPrice ?? ''}
+            />
+          </CompactField>
+          <CompactField label="Max $" narrow>
+            <input
+              className="filter-compact__input"
+              name="maxPrice"
+              type="number"
+              min={0}
+              step={1000}
+              placeholder="—"
+              defaultValue={raw.maxPrice ?? ''}
+            />
+          </CompactField>
+          <CompactField label="Beds" narrow>
+            <input
+              className="filter-compact__input"
+              name="minBeds"
+              type="number"
+              min={0}
+              step={0.5}
+              placeholder="—"
+              defaultValue={raw.minBeds ?? ''}
+            />
+          </CompactField>
+          <CompactField label="Baths" narrow>
+            <input
+              className="filter-compact__input"
+              name="minBaths"
+              type="number"
+              min={0}
+              step={0.5}
+              placeholder="—"
+              defaultValue={raw.minBaths ?? ''}
+            />
+          </CompactField>
+          <CompactField label="Sq ft" narrow>
+            <input
+              className="filter-compact__input"
+              name="minSqft"
+              type="number"
+              min={0}
+              step={50}
+              placeholder="—"
+              defaultValue={raw.minSqft ?? ''}
+            />
+          </CompactField>
+          <div className="filter-compact__actions">
+            <button className="button primary filter-compact__btn" type="submit" title="Apply filters">
+              <Filter size={15} />
+              Apply
+            </button>
+            <a className="button ghost filter-compact__btn" href={clearHref}>
+              Clear
+            </a>
           </div>
-        </section>
+        </div>
 
-        <section className="filter-block filter-block--group">
-          <h3 className="filter-block__title">Rooms and size</h3>
-          <FilterPillRow name="minBeds" legend="Bedrooms" options={BED_OPTIONS} rawValue={raw.minBeds} />
-          <FilterPillRow name="minBaths" legend="Bathrooms" options={BATH_OPTIONS} rawValue={raw.minBaths} />
-          <FilterPillRow name="minSqft" legend="Square feet" options={SQFT_OPTIONS} rawValue={raw.minSqft} />
-        </section>
+        <div className="filter-compact__row filter-compact__row--secondary">
+          <CompactField label="Property" wide>
+            <select className="filter-compact__input" name="listingId" defaultValue={filters.listingId ?? ''}>
+              <option value="">All properties</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.address}, {property.city}, {property.state} {property.zip}
+                </option>
+              ))}
+            </select>
+          </CompactField>
+          {resultCount != null ? (
+            <span className="filter-compact__count muted">
+              {resultCount.toLocaleString()} listing{resultCount === 1 ? '' : 's'}
+            </span>
+          ) : null}
+        </div>
+
+        {chips.length > 0 ? (
+          <div className="filter-chips filter-chips--compact" aria-label="Active filters">
+            {chips.map((chip) => (
+              <a key={chip.key} className="filter-chip" href={chip.href} title={`Remove: ${chip.label}`}>
+                <span>{chip.label}</span>
+                <X size={12} aria-hidden />
+              </a>
+            ))}
+          </div>
+        ) : null}
       </div>
-
-      <footer className="filter-panel__footer">
-        <a className="filter-panel__clear" href={clearHref}>
-          Clear all
-        </a>
-        <button className="filter-panel__submit" type="submit">
-          {showLabel}
-        </button>
-      </footer>
     </form>
   );
 }
