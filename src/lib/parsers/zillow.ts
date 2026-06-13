@@ -206,9 +206,83 @@ function findAddressDollarAnchor(source: string, address: string): number {
 }
 
 /**
+ * Zillow alert emails render each listing as a contiguous block:
+ *   `STATUS $PRICE [| Price cut: $CUT (date)] N bd | N ba | N,NNN sqft [Builder: X] ADDRESS`
+ * The `N bd | N ba | N sqft` spec is the single most reliable landmark — far more so than a
+ * scored scan of every `$…` in the body, which routinely grabbed promo range labels ("$225K"),
+ * a *neighboring* listing's price, or the "Price cut: $X" delta. We anchor on the spec block
+ * nearest the address and read the listing's price + specs from that block.
+ */
+const SPEC_RE =
+  /(\d+(?:\.\d+)?)\s*(?:bd|beds?|bdr)\b\s*\|?\s*(\d+(?:\.\d+)?)\s*(?:ba|baths?)\b\s*\|?\s*([\d,]+|--|—)\s*(?:sq\s*ft|sqft)\b/gi;
+
+interface PrimarySpec {
+  index: number;
+  beds: number;
+  baths: number;
+  sqft: number;
+}
+
+/** The bd|ba|sqft block nearest (and preferably before) the listing address. */
+function findPrimarySpecBlock(source: string, address: string): PrimarySpec | null {
+  const matches = [...source.matchAll(SPEC_RE)];
+  if (matches.length === 0) return null;
+
+  const anchor = findAddressDollarAnchor(source, address);
+  let chosen = matches[0];
+  if (anchor >= 0) {
+    let bestDist = Infinity;
+    for (const m of matches) {
+      const idx = m.index ?? 0;
+      // The spec sits just before the address; blocks after it belong to other listings.
+      const dist = idx <= anchor ? anchor - idx : idx - anchor + 100_000;
+      if (dist < bestDist) {
+        bestDist = dist;
+        chosen = m;
+      }
+    }
+  }
+
+  const sqftRaw = String(chosen[3]).replace(/,/g, '');
+  return {
+    index: chosen.index ?? 0,
+    beds: parseFloat(chosen[1]) || 0,
+    baths: parseFloat(chosen[2]) || 0,
+    sqft: /^\d+$/.test(sqftRaw) ? parseInt(sqftRaw, 10) : 0,
+  };
+}
+
+/** Keywords that mark a `$` amount as something other than the list price. */
+const NON_LIST_PRICE_CTX =
+  /\b(price\s*cut|cut:|reduced|down\b|down\s*payment|closing|zestimate|payment|principal|interest|insurance|property\s*tax|taxes?|hoa|loan|pmi)\b|%\s*$/i;
+
+/** List price = the clean `$` amount closest before the spec block (skip cut/down/payment figures). */
+function extractPriceBeforeSpec(source: string, specIndex: number): number {
+  const segment = source.slice(Math.max(0, specIndex - 160), specIndex);
+  const re = /\$([\d,.]+)\s*([KkMm])?/g;
+  let best = 0;
+  let bestIdx = -1;
+  for (const m of segment.matchAll(re)) {
+    const value = parseDollarAmount(m as unknown as RegExpMatchArray);
+    if (!value) continue;
+    const idx = m.index ?? 0;
+    const ctxBefore = segment.slice(Math.max(0, idx - 26), idx);
+    if (NON_LIST_PRICE_CTX.test(ctxBefore)) continue;
+    const after = segment.slice(idx, idx + m[0].length + 14);
+    if (/\/\s*mo\b|per\s+month/i.test(after)) continue;
+    if (idx > bestIdx) {
+      bestIdx = idx;
+      best = value;
+    }
+  }
+  return best;
+}
+
+/**
  * Pick list price from all `$…` amounts in the email body.
  *
- * Zillow templates often include **down payment**, **est. monthly payment**, **Zestimate**, etc.
+ * Fallback when no spec block anchors the listing. Zillow templates often include
+ * **down payment**, **est. monthly payment**, **Zestimate**, etc.
  * Taking `Math.max` alone wrongly picked e.g. $225,000 (20% down on a $1.125M home) over the
  * real list price when the larger figure sat outside the parsed window or was formatted oddly.
  * We score each candidate with local context, then prefer the best match **nearest the listing
@@ -466,7 +540,9 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
   if (!address) return null;
   const { city, state, zip } = splitAddress(address);
 
-  let price = extractLikelyListingPrice(normalized, address);
+  const specBlock = findPrimarySpecBlock(normalized, address);
+  let price = specBlock ? extractPriceBeforeSpec(normalized, specBlock.index) : 0;
+  if (!price) price = extractLikelyListingPrice(normalized, address);
   const homeZest = extractHomeZestimateValue(normalized);
   if (homeZest && price > 0) {
     const ratio = price / homeZest;
@@ -482,6 +558,12 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
   const bedsMatch = normalized.match(/(?:^|[^\w])(\d+(?:\.\d+)?)\s*(?:bd|bed|beds|bdr)\b/i);
   const bathsMatch = normalized.match(/(?:^|[^\w])(\d+(?:\.\d+)?)\s*(?:ba|bath|baths)\b/i);
   const sqftMatch = normalized.match(/(?:^|[^\w])([\d,]+)\s*(?:sq\s*ft|sqft)\b/i);
+  // Prefer the primary listing's contiguous spec block over a body-wide regex that can match a
+  // neighboring listing's specs; fall back to the body-wide match per field when absent/zero.
+  const beds = specBlock ? specBlock.beds : bedsMatch ? parseFloat(bedsMatch[1]) : 0;
+  const baths = specBlock ? specBlock.baths : bathsMatch ? parseFloat(bathsMatch[1]) : 0;
+  const sqft =
+    specBlock && specBlock.sqft ? specBlock.sqft : sqftMatch ? parseInt(sqftMatch[1].replace(/,/g, ''), 10) : 0;
   const hoa = parseDollarAmount(normalized.match(/HOA[:\s]+\$([\d,.]+)\s*([KkMm])?/i));
   const ybMatch = normalized.match(/(?:built|year built)[:\s]+(\d{4})/i);
   const lotMatch = normalized.match(/([\d,.]+\s*(?:acres?|sqft|sq\s*ft))\s*lot/i);
@@ -495,9 +577,9 @@ function buildListing(rawChunk: string, candidateUrls: string[]): BuildListingRe
     zip,
     price,
     priceCut,
-    beds: bedsMatch ? parseFloat(bedsMatch[1]) : 0,
-    baths: bathsMatch ? parseFloat(bathsMatch[1]) : 0,
-    sqft: sqftMatch ? parseInt(sqftMatch[1].replace(/,/g, ''), 10) : 0,
+    beds,
+    baths,
+    sqft,
     hoa,
     yearBuilt: ybMatch ? ybMatch[1] : '',
     lotSize: lotMatch ? clean(lotMatch[1]) : '',

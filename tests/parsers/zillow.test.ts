@@ -240,6 +240,47 @@ https://www.zillow.com/homedetails/10-Market-St-Camden-NJ-08102/12345_zpid/`;
   });
 });
 
+describe('parseZillowMessage - real Zillow alert layout', () => {
+  // Real alert emails render: `STATUS $PRICE [| Price cut: $CUT (date)] N bd | N ba | N sqft ADDRESS`.
+  // The list price is the $ amount adjacent to the spec block, NOT a scored scan of the whole body
+  // (which used to grab the search's "$225K" range label, the cut delta, or a neighbor's price).
+  it('takes the price beside the spec block, not the leading search range label', () => {
+    const body = `Your saved search: homes from $225K
+For sale. NEW. $185,000 3 bd | 2 ba | 1,235 sqft 3345 Amber St, Philadelphia, PA 19134
+https://www.zillow.com/homedetails/3345-Amber-St-Philadelphia-PA-19134/12345_zpid/`;
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    const p = result!.payloads[0];
+    expect(p.price).toBe(185_000);
+    expect(p.beds).toBe(3);
+    expect(p.baths).toBe(2);
+    expect(p.sqft).toBe(1235);
+  });
+
+  it('takes the list price, not the "Price cut: $X" delta, on a price-cut alert', () => {
+    const body = `Price cut on a saved home. Range $400K - $1.2M
+$1,195,000 | Price cut: $70K (5/28) 8 bd | 5 ba | 2,722 sqft 48 Danforth Ave, Jersey City, NJ 07305
+https://www.zillow.com/homedetails/48-Danforth-Ave-Jersey-City-NJ-07305/55555_zpid/`;
+    const result = parseZillowMessage(makeMessage({ subject: 'Price cut', textBody: body }));
+    const p = result!.payloads[0];
+    expect(p.price).toBe(1_195_000);
+    expect(p.priceCut).toBe(70_000);
+    expect(p.beds).toBe(8);
+    expect(p.sqft).toBe(2722);
+  });
+
+  it('reads specs from the primary listing block, not a trailing recommendation', () => {
+    // The alert is for the 3 bd home (listed first, as Zillow does); a recommended 2 bd home follows.
+    const body = `For sale. NEW. $199,999 3 bd | 2 ba | 1,583 sqft 7511 Rocky Trl, Converse, TX 78109
+https://www.zillow.com/homedetails/7511-Rocky-Trl-Converse-TX-78109/88888_zpid/
+Recommended for you: $217,999 2 bd | 2 ba | 1,100 sqft 99 Other St, Converse, TX 78109`;
+    const result = parseZillowMessage(makeMessage({ subject: 'New listing', textBody: body }));
+    const p = result!.payloads[0];
+    expect(p.price).toBe(199_999);
+    expect(p.beds).toBe(3);
+    expect(p.sqft).toBe(1583);
+  });
+});
+
 describe('parseZillowMessage - search results digest', () => {
   it('extracts multiple listings and de-dupes by zpid', () => {
     const body = `Latest results for your search 'Camden Rentals'

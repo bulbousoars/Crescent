@@ -236,7 +236,7 @@ export class ImapProvider implements MailProvider {
   }
 }
 
-function parseSource(source: Buffer | null): { textBody: string; htmlBody: string; snippet: string } {
+export function parseSource(source: Buffer | null): { textBody: string; htmlBody: string; snippet: string } {
   if (!source) return { textBody: '', htmlBody: '', snippet: '' };
   const raw = source.toString('utf8');
   const headerEnd = raw.indexOf('\r\n\r\n') === -1 ? raw.indexOf('\n\n') : raw.indexOf('\r\n\r\n');
