@@ -70,7 +70,7 @@ async function processAccount(prisma: PrismaClient, account: MailAccountRow, key
   await prisma.mailAccount.update({ where: { id: account.id }, data: updateData });
 }
 
-async function processMessage(
+export async function processMessage(
   prisma: PrismaClient,
   provider: ReturnType<typeof getProvider>,
   account: MailAccountRow,
@@ -81,7 +81,10 @@ async function processMessage(
   const existing = await prisma.mailMessage.findUnique({
     where: { accountId_providerMsgId: { accountId: account.id, providerMsgId: message.providerMsgId } },
   });
-  if (existing && existing.status !== 'pending') return;
+  if (existing && (existing.status === 'ingested' || existing.status === 'skipped')) {
+    await provider.markProcessed({ tokens, providerMsgId: message.providerMsgId, rules });
+    return;
+  }
 
   const baseRow = existing
     ? existing
