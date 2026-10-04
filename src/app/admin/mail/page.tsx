@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, AlertCircle, Mail, KeyRound, ExternalLink } from 'lucide-react';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import { prisma } from '@/lib/prisma';
+import { DEFAULT_MAIL_RULES } from '@/lib/mail/defaultRules';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,7 +161,7 @@ export default async function MailAdminPage({
                 className="field"
                 name="fromAllowlist"
                 rows={4}
-                defaultValue={'instant-updates@mail.zillow.com\nmy-saved-home@mail.zillow.com'}
+                defaultValue={DEFAULT_MAIL_RULES.fromAllowlist.join('\n')}
               />
               <span className="help">One email address per line. Only messages from these senders are polled.</span>
             </label>

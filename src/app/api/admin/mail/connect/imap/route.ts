@@ -6,6 +6,7 @@ import { encryptJson, loadEncryptionKey } from '@/lib/mail/crypto';
 import { prisma } from '@/lib/prisma';
 import type { MailPasswordCredentials } from '@/lib/mail/provider';
 import { publicUrl } from '@/lib/forwarded-url';
+import { DEFAULT_MAIL_RULES } from '@/lib/mail/defaultRules';
 
 const formSchema = z.object({
   email: z.string().min(3),
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       rules: {
         fromAllowlist: fromAllowlist.length
           ? fromAllowlist
-          : ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
+          : DEFAULT_MAIL_RULES.fromAllowlist,
         processedLabel: parsed.processedLabel || 'Real-Estate',
       },
       lastError: '',
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       rules: {
         fromAllowlist: fromAllowlist.length
           ? fromAllowlist
-          : ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
+          : DEFAULT_MAIL_RULES.fromAllowlist,
         processedLabel: parsed.processedLabel || 'Real-Estate',
       },
     },

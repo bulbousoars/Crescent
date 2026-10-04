@@ -11,12 +11,12 @@ import type {
 } from '../provider';
 import { isPasswordCreds } from '../provider';
 
-const DEFAULT_PROCESSED_KEYWORD = 'Real-Estate';
+const DEFAULT_PROCESSED_FOLDER = 'Real-Estate';
 const FETCH_BATCH_LIMIT = 50;
 
-function processedKeywordFromRules(rules: { processedLabel?: string }): string {
-  const raw = (rules.processedLabel || DEFAULT_PROCESSED_KEYWORD).replace(/[^A-Za-z0-9_-]+/g, '-');
-  return raw || DEFAULT_PROCESSED_KEYWORD;
+function processedFolderFromRules(rules: { processedLabel?: string }): string {
+  const raw = (rules.processedLabel || DEFAULT_PROCESSED_FOLDER).replace(/[^A-Za-z0-9_-]+/g, '-');
+  return raw || DEFAULT_PROCESSED_FOLDER;
 }
 
 function parseCursor(cursor: string): { uidValidity: number; lastUid: number } {
@@ -110,16 +110,12 @@ export class ImapProvider implements MailProvider {
       const baseCriteria: Record<string, unknown> = {
         uid: `${lastUid + 1}:*`,
       };
-      const keyword = processedKeywordFromRules(args.rules);
-      if (senderTerms.length === 0) {
-        // no senders means no filter; still apply keyword exclusion
-        baseCriteria.notKeyword = keyword;
-      } else if (senderTerms.length === 1) {
+      // Completed messages leave Inbox. Include labeled messages still in Inbox
+      // so an interrupted move can be retried.
+      if (senderTerms.length === 1) {
         Object.assign(baseCriteria, senderTerms[0]);
-        baseCriteria.notKeyword = keyword;
-      } else {
+      } else if (senderTerms.length > 1) {
         baseCriteria.or = senderTerms;
-        baseCriteria.notKeyword = keyword;
       }
 
       const searchResult = await client.search(baseCriteria, { uid: true });
@@ -180,34 +176,19 @@ export class ImapProvider implements MailProvider {
     const [validityStr, uidStr] = args.providerMsgId.split(':');
     const uid = parseInt(uidStr, 10);
     if (!uid) throw new Error(`invalid providerMsgId for IMAP: ${args.providerMsgId}`);
-    const keyword = processedKeywordFromRules(args.rules);
+    const folder = processedFolderFromRules(args.rules);
     const client = this.openClient(args.tokens);
     try {
       await client.connect();
       await client.mailboxOpen('INBOX', { readOnly: false });
 
-      // Gmail / Google Workspace: X-GM-LABELS for user labels + Inbox; standard FLAGS for \Seen.
-      const gmailLabels =
-        typeof client.capabilities?.has === 'function' && client.capabilities.has('X-GM-EXT-1');
-
-      if (gmailLabels) {
-        // Gmail: FLAGS \\Seen, then X-GM-LABELS user label, then drop \\Inbox (sometimes Gmail
-        // re-applies Inbox when adding a label; a second -X-GM-LABELS \\Inbox STORE clears it).
-        const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
-        if (!seenOk) throw new Error('IMAP: failed to mark message as read');
-        const labelOk = await client.messageFlagsAdd(uid, [keyword], { uid: true, useLabels: true });
-        if (!labelOk) throw new Error(`IMAP: failed to apply Gmail label "${keyword}"`);
-        const inboxOk = await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
-        if (!inboxOk) throw new Error('IMAP: failed to remove Inbox label (archive)');
-        const inboxOk2 = await client.messageFlagsRemove(uid, ['\\Inbox'], { uid: true, useLabels: true });
-        if (!inboxOk2) throw new Error('IMAP: failed second Inbox removal (archive)');
-      } else {
-        // Generic IMAP: read then keyword (two STORE +FLAGS). Inbox archive is not portable here.
-        const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
-        if (!seenOk) throw new Error('IMAP: failed to mark message as read');
-        const keywordOk = await client.messageFlagsAdd(uid, [keyword], { uid: true });
-        if (!keywordOk) throw new Error(`IMAP: failed to apply keyword "${keyword}"`);
-      }
+      const seenOk = await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+      if (!seenOk) throw new Error('IMAP: failed to mark message as read');
+      // CREATE is idempotent in ImapFlow. On Gmail, moving to a label mailbox
+      // applies that label and removes the message from Inbox in one operation.
+      await client.mailboxCreate(folder);
+      const moved = await client.messageMove(uid, folder, { uid: true });
+      if (!moved) throw new Error(`IMAP: failed to move message to "${folder}"`);
       await client.logout();
     } catch (error) {
       try {

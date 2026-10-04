@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import type { MailProviderId } from '@/lib/mail/provider';
 import { publicUrl } from '@/lib/forwarded-url';
 import { mergeMailRules, type MailRulesJson } from '@/lib/mail/legacyRules';
+import { DEFAULT_MAIL_RULES } from '@/lib/mail/defaultRules';
 
 const STATE_COOKIE = 'crescent_oauth_state';
 
@@ -57,10 +58,7 @@ export async function GET(
   const { identity, tokens } = await provider.completeAuth({ code, redirectUri });
   const key = loadEncryptionKey();
   const encrypted = new Uint8Array(encryptJson(tokens, key));
-  const defaultRules: MailRulesJson = {
-    fromAllowlist: ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
-    processedLabel: 'Real-Estate',
-  };
+  const defaultRules: MailRulesJson = DEFAULT_MAIL_RULES;
   const existing = await prisma.mailAccount.findUnique({
     where: { provider_email: { provider: providerId, email: identity.email } },
     select: { rules: true },

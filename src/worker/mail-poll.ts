@@ -5,6 +5,7 @@ import { getProvider } from '../lib/mail/registry';
 import { parseZillowMessage } from '../lib/parsers/zillow';
 import { enrichListingById } from '../lib/enrichment/enrichListing';
 import { ingestZillowEmail } from '../lib/ingestion';
+import { DEFAULT_MAIL_RULES } from '../lib/mail/defaultRules';
 import type { MailAuthMaterial, MailProviderId, RawMessage, MailRules } from '../lib/mail/provider';
 
 const POLL_INTERVAL_MS = Number(process.env.MAIL_POLL_INTERVAL_MS || 60_000);
@@ -40,10 +41,7 @@ function dueForSync(account: MailAccountRow): boolean {
 
 function rulesFromAccount(account: MailAccountRow): MailRules {
   if (account.rules && typeof account.rules === 'object') return account.rules as MailRules;
-  return {
-    fromAllowlist: ['instant-updates@mail.zillow.com', 'my-saved-home@mail.zillow.com'],
-    processedLabel: 'Real-Estate',
-  };
+  return DEFAULT_MAIL_RULES;
 }
 
 async function processAccount(prisma: PrismaClient, account: MailAccountRow, key: Buffer): Promise<void> {

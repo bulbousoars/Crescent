@@ -15,6 +15,7 @@ class MockImapFlow {
   public calls: string[] = [];
   public connectRejects: Error | null = null;
   public searchUids: number[] = [];
+  public searchCriteria: unknown;
   public fetchedMessages: Map<number, FetchedMessage> = new Map();
   public uidValidity = 12345;
   public capabilities = new Map<string, unknown>();
@@ -23,6 +24,8 @@ class MockImapFlow {
   private messageFlagsAddCallCount = 0;
   public flagsAdded: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
   public flagsRemoved: Array<{ uid: number; keywords: string[]; options?: Record<string, unknown> }> = [];
+  public moveSucceeds = true;
+  public createRejects: Error | null = null;
 
   async connect() {
     this.calls.push('connect');
@@ -32,8 +35,9 @@ class MockImapFlow {
     this.calls.push('mailboxOpen');
     return { uidValidity: BigInt(this.uidValidity) };
   }
-  async search() {
+  async search(criteria: unknown) {
     this.calls.push('search');
+    this.searchCriteria = criteria;
     return this.searchUids;
   }
   async fetchOne(uid: number) {
@@ -59,6 +63,15 @@ class MockImapFlow {
     this.calls.push(`flag-remove:${uid}:${keywords.join(',')}`);
     this.flagsRemoved.push({ uid, keywords, options });
     return true;
+  }
+  async mailboxCreate(path: string) {
+    this.calls.push(`create:${path}`);
+    if (this.createRejects) throw this.createRejects;
+    return { path, created: false };
+  }
+  async messageMove(uid: number, path: string, options: { uid?: boolean }) {
+    this.calls.push(`move:${uid}:${path}:${JSON.stringify(options)}`);
+    return this.moveSucceeds ? { path: 'INBOX', destination: path } : false;
   }
   async logout() {
     this.calls.push('logout');
@@ -134,6 +147,7 @@ describe('ImapProvider.listNew', () => {
     expect(result.messages[0].fromAddress).toBe('instant-updates@mail.zillow.com');
     expect(result.messages[0].textBody).toBe('body 10');
     expect(result.nextCursor).toBe(`uid:${mock.uidValidity}:11`);
+    expect(mock.searchCriteria).toEqual({ uid: '1:*', from: 'instant-updates@mail.zillow.com' });
   });
 
   it('skips UIDs at or below cursor on same UIDVALIDITY', async () => {
@@ -182,7 +196,7 @@ describe('ImapProvider.listNew', () => {
 });
 
 describe('ImapProvider.markProcessed', () => {
-  it('marks message as seen and adds the configured keyword', async () => {
+  it('marks message as seen and moves it from Inbox to the configured folder', async () => {
     const mock = new MockImapFlow();
     const provider = new ImapProvider({
       imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
@@ -194,12 +208,8 @@ describe('ImapProvider.markProcessed', () => {
     });
     expect(mock.flagsAdded).toEqual([
       { uid: 42, keywords: ['\\Seen'], options: { uid: true } },
-      { uid: 42, keywords: ['Crescent-Processed'], options: { uid: true } },
     ]);
-    expect(mock.calls.filter((c) => c.startsWith('flag:'))).toEqual([
-      'flag:42:\\Seen:{"uid":true}',
-      'flag:42:Crescent-Processed:{"uid":true}',
-    ]);
+    expect(mock.calls).toEqual(['connect', 'mailboxOpen', 'flag:42:\\Seen:{"uid":true}', 'create:Crescent-Processed', 'move:42:Crescent-Processed:{"uid":true}', 'logout']);
     expect(mock.flagsRemoved).toEqual([]);
     expect(mock.calls).not.toContain('flag-remove:42:\\Inbox');
     expect(mock.calls).toContain('logout');
@@ -221,9 +231,9 @@ describe('ImapProvider.markProcessed', () => {
     expect(mock.calls).not.toContain('logout');
   });
 
-  it('throws when generic IMAP read succeeds but keyword STORE returns false', async () => {
+  it('throws when the destination folder cannot be created', async () => {
     const mock = new MockImapFlow();
-    mock.messageFlagsAddFailAttempt = 2;
+    mock.createRejects = new Error('Cannot create folder');
     const provider = new ImapProvider({
       imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow,
     });
@@ -233,11 +243,12 @@ describe('ImapProvider.markProcessed', () => {
         providerMsgId: '12345:42',
         rules: { processedLabel: 'Crescent-Processed' },
       }),
-    ).rejects.toThrow(/failed to apply keyword/);
+    ).rejects.toThrow(/Cannot create folder/);
+    expect(mock.calls.some(c => c.startsWith('move:'))).toBe(false);
     expect(mock.calls).not.toContain('logout');
   });
 
-  it('uses Gmail extensions in order: \\Seen, label (X-GM-LABELS), remove Inbox twice', async () => {
+  it('moves Gmail messages to the Real-Estate label instead of removing Inbox via X-GM-LABELS', async () => {
     const mock = new MockImapFlow();
     mock.capabilities.set('X-GM-EXT-1', true);
     const provider = new ImapProvider({
@@ -250,17 +261,17 @@ describe('ImapProvider.markProcessed', () => {
     });
     expect(mock.flagsAdded).toEqual([
       { uid: 42, keywords: ['\\Seen'], options: { uid: true } },
-      { uid: 42, keywords: ['Real-Estate'], options: { uid: true, useLabels: true } },
     ]);
-    expect(mock.flagsRemoved).toEqual([
-      { uid: 42, keywords: ['\\Inbox'], options: { uid: true, useLabels: true } },
-      { uid: 42, keywords: ['\\Inbox'], options: { uid: true, useLabels: true } },
-    ]);
-    expect(mock.calls.filter((c) => c.startsWith('flag:'))).toEqual([
-      'flag:42:\\Seen:{"uid":true}',
-      'flag:42:Real-Estate:{"uid":true,"useLabels":true}',
-    ]);
-    expect(mock.calls.filter((c) => c === 'flag-remove:42:\\Inbox')).toHaveLength(2);
+    expect(mock.flagsRemoved).toEqual([]);
+    expect(mock.calls).toContain('move:42:Real-Estate:{"uid":true}');
     expect(mock.calls).toContain('logout');
+  });
+
+  it('throws when the move fails so the worker retries instead of advancing its cursor', async () => {
+    const mock = new MockImapFlow();
+    mock.moveSucceeds = false;
+    const provider = new ImapProvider({ imapClientFactory: () => mock as unknown as import('imapflow').ImapFlow });
+    await expect(provider.markProcessed({ tokens: CREDS, providerMsgId: '12345:42', rules: { processedLabel: 'Real-Estate' } })).rejects.toThrow(/failed to move/);
+    expect(mock.calls).not.toContain('logout');
   });
 });
